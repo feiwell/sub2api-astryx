@@ -1,0 +1,484 @@
+@import '@astryxdesign/core/reset.css';
+@import '@astryxdesign/core/astryx.css';
+@import '@astryxdesign/theme-neutral/theme.css';
+
+/*
+ * App-level styles. Astryx components are styled by the prebuilt CSS above;
+ * these rules only cover app chrome Astryx does not own (third-party captcha
+ * widgets, small layout helpers). Everything uses Astryx design tokens so it
+ * follows the theme and dark mode.
+ */
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-background-body);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-body);
+}
+
+/* ---------- Layout helpers ---------- */
+
+.app-page {
+  width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.mono {
+  font-family: var(--font-family-code);
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stat-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 1024px) {
+  .stat-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.two-col {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 1280px) {
+  .two-col {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .two-col--wide-start {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+}
+
+/* The dot grid behind the sign-in pages and the home page. */
+.auth-page,
+.home-landing {
+  background-color: var(--color-background-body);
+  background-image: radial-gradient(circle, var(--color-border-emphasized) 1px, transparent 1.5px);
+  background-position: center;
+  background-size: 24px 24px;
+}
+
+.auth-page {
+  min-height: 100%;
+}
+
+.auth-column {
+  width: 100%;
+  max-width: 420px;
+}
+
+/* ---------- Captcha widgets ---------- */
+
+.captcha-turnstile {
+  position: relative;
+  min-height: 65px;
+}
+
+.captcha-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-element);
+  background: var(--color-background-muted);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.captcha-tencent-intl {
+  display: flex;
+  min-height: 60px;
+  width: 100%;
+  justify-content: center;
+}
+
+.captcha-tencent-intl--hidden {
+  pointer-events: none;
+  position: fixed;
+  left: 50%;
+  top: 0;
+  height: 60px;
+  width: 302px;
+  min-height: 0;
+  transform: translateX(-50%) scale(0.01);
+  opacity: 0;
+}
+
+.captcha-aliyun {
+  width: 100%;
+}
+
+.captcha-aliyun__button {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--radius-element);
+  border: 1px solid var(--color-border);
+  background: var(--color-background-muted);
+  padding: 8px 12px;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.captcha-aliyun__button:hover:not(:disabled) {
+  border-color: var(--color-border-emphasized);
+}
+
+.captcha-aliyun__button.is-verified {
+  border-color: var(--color-border-success);
+  background: var(--color-success-muted);
+  color: var(--color-text-success);
+  cursor: default;
+}
+
+/* ---------- Side nav user card ---------- */
+
+.sidenav-user {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--radius-element);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.sidenav-user:hover,
+.sidenav-user[aria-expanded='true'] {
+  background: var(--color-overlay-hover);
+}
+
+.sidenav-user:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.sidenav-user.is-collapsed {
+  width: auto;
+  padding: 4px;
+}
+
+.sidenav-user__text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.sidenav-user__name {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.sidenav-user__meta {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.oauth-email-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 480px) {
+  .oauth-email-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.auth-page {
+  position: relative;
+}
+
+.auth-toolbar {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  gap: 4px;
+  z-index: 1;
+}
+
+/* ---------- Dashboard ---------- */
+
+.stat-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-element);
+  background: var(--color-background-muted);
+  color: var(--color-text-secondary);
+}
+
+.stat-secondary {
+  color: var(--color-text-secondary);
+  font-weight: 400;
+}
+
+.platform-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.platform-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+  padding: 12px;
+}
+
+.platform-card.is-other {
+  border-style: dashed;
+  background: var(--color-background-muted);
+}
+
+.kv-list {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  row-gap: 4px;
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.kv-list dt {
+  color: var(--color-text-secondary);
+}
+
+.kv-list dd {
+  margin: 0;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.share-track {
+  height: 4px;
+  width: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-background-muted);
+  overflow: hidden;
+}
+
+.share-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+}
+
+.list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--radius-container);
+  background: var(--color-background-muted);
+}
+
+.action-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--radius-container);
+  background: var(--color-background-muted);
+  color: inherit;
+  text-decoration: none;
+}
+
+.action-row:hover {
+  outline: 1px solid var(--color-border-emphasized);
+}
+
+.action-row:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.text-error {
+  color: var(--color-text-error);
+}
+
+/* ---------- Page turn ---------- */
+
+/*
+ * Following a side nav link turns the page inside a view transition (layouts/PageTurn.tsx): the
+ * page showing blurs, fades and lifts away, the next one fades in from below, a veil of the body
+ * colour passes over both, and the avatar in the side nav dips. The page leaving and the page
+ * arriving carry different names (the stage flips between two sides), so each is a snapshot of
+ * its own and neither is morphed into the other.
+ *
+ * A page that sits higher in the side nav than the one showing comes the other way: the page
+ * showing sinks, the next one comes down from above, and the veil hangs from the top.
+ */
+
+.page-stage {
+  height: 100%;
+}
+
+.page-stage[data-page-turn='a'] {
+  view-transition-name: page-a;
+}
+
+.page-stage[data-page-turn='b'] {
+  view-transition-name: page-b;
+}
+
+/* Holds the veil over the pages without taking room. The veil paints nothing; only its snapshot is given a colour. */
+.page-veil-anchor {
+  position: sticky;
+  bottom: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.page-veil {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 100dvh;
+  view-transition-name: page-veil;
+}
+
+.sidenav-user[data-page-turn] .astryx-avatar {
+  view-transition-name: nav-avatar;
+}
+
+/* Tooltips and toasts float above the pages. Named, they float above the snapshots of the pages too. */
+.astryx-tooltip:popover-open,
+[popover='manual'][role='region'] {
+  view-transition-name: match-element;
+  view-transition-class: page-turn-overlay;
+}
+
+::view-transition-group(.page-turn-overlay) {
+  z-index: 1;
+}
+
+/*
+ * Only the layers that move are snapshotted, not the app around them. The side nav stays live
+ * while a page turns, and presses go through the snapshots to it.
+ */
+:root:has(.page-stage[data-page-turn]) {
+  view-transition-name: none;
+}
+
+:root:has(.page-stage[data-page-turn])::view-transition {
+  pointer-events: none;
+}
+
+/* Which way the pages and the veil travel: 1 for a page coming from below, -1 for one coming from above. */
+:root:has(.page-stage[data-page-turn-from='above']) {
+  --page-turn-way: -1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* The page leaving is nearly gone by the time the next one shows, so the two are never read at once. */
+  ::view-transition-old(page-a):only-child,
+  ::view-transition-old(page-b):only-child {
+    animation: page-leave 180ms cubic-bezier(0.4, 0, 1, 1) both;
+  }
+
+  ::view-transition-new(page-a):only-child,
+  ::view-transition-new(page-b):only-child {
+    animation: page-arrive 380ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
+  }
+
+  ::view-transition-image-pair(page-veil) {
+    background-image: linear-gradient(to top, var(--color-background-body), transparent 85%);
+    animation: page-veil 500ms ease-in-out both;
+  }
+
+  :root:has(.page-stage[data-page-turn-from='above'])::view-transition-image-pair(page-veil) {
+    background-image: linear-gradient(to bottom, var(--color-background-body), transparent 85%);
+  }
+
+  ::view-transition-image-pair(nav-avatar) {
+    animation: nav-avatar-dip 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes page-leave {
+  to {
+    opacity: 0;
+    transform: translateY(calc(var(--page-turn-way, 1) * -12px));
+    filter: blur(8px);
+  }
+}
+
+@keyframes page-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--page-turn-way, 1) * 16px));
+  }
+}
+
+/* Thickest while the pages change over. It drifts half as far as the page arriving, and more slowly. */
+@keyframes page-veil {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--page-turn-way, 1) * 8px));
+  }
+  30% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(0);
+  }
+}
+
+@keyframes nav-avatar-dip {
+  40% {
+    transform: translateY(-2px) scale(0.9);
+  }
+}
+
+.compliance-document {
+  max-height: 38vh;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  padding: var(--spacing-4);
+  border: thin solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  line-height: 1.65;
+}
+.compliance-document :is(h1, h2, strong) { font-weight: bold; }
+.compliance-document > * + * { margin-block-start: var(--spacing-3); }
+.compliance-document :is(ul, ol) { padding-inline-start: var(--spacing-5); list-style: revert; }

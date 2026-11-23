@@ -1,0 +1,11 @@
+# Only the public build and the three Nginx inputs enter the image context.
+**
+!dist/
+!dist/**
+!deploy/
+!deploy/nginx.conf
+!deploy/site.conf.template
+!deploy/nonce.js
+dist/**/.*
+dist/**/.*/**
+dist/**/*.map

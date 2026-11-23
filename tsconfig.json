@@ -1,0 +1,50 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "paths": {
+      "@/i18n": [
+        "./src/shims/i18n.ts"
+      ],
+      "@/stores/app": [
+        "./src/shims/appStore.ts"
+      ],
+      "@/*": [
+        "./shared/*"
+      ],
+      "~/*": [
+        "./src/*"
+      ],
+      "vue": [
+        "./src/shims/vue.ts"
+      ]
+    },
+    "types": [
+      "vite/client",
+      "node"
+    ]
+  },
+  "include": [
+    "src",
+    "shared",
+    "vite.config.ts",
+    "vitest.config.ts"
+  ]
+}

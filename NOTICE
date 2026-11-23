@@ -1,0 +1,27 @@
+Sub2API Astryx frontend
+
+This standalone frontend is derived from Sub2API.
+Copyright (c) 2026 Wesley Liddick
+https://github.com/Wei-Shaw/sub2api/tree/530c5e3a4f9c73ca2b0881191d0ef8e0d82c5484
+
+The project license is the GNU Lesser General Public License, version 3 or any
+later version (LGPL-3.0-or-later). The upstream README specifies this choice.
+LICENSE preserves the upstream text. COPYING.LESSER contains GNU LGPL version 3.
+COPYING contains GNU GPL version 3, whose terms the LGPL incorporates.
+https://github.com/Wei-Shaw/sub2api/blob/530c5e3a4f9c73ca2b0881191d0ef8e0d82c5484/README.md#license
+
+Modification notice, November 23, 2026
+The downstream project provides a React and Astryx interface for Sub2API.
+It packages selected modules from the upstream frontend/src tree under shared/,
+uses local build paths, and replaces embedded provider artwork and the favicon.
+
+Standalone frontend source
+https://github.com/feiwell/sub2api-astryx
+
+Third-party authors retain their notices. THIRD_PARTY_NOTICES.md identifies
+the Astryx template portions and icons, points to their license texts, and
+documents how the frontend loads the payment SDKs. Product names identify the
+corresponding software and services.
+The upstream README describes provider terms and disclaims responsibility for
+commercial operations conducted by others.
+https://github.com/Wei-Shaw/sub2api/blob/530c5e3a4f9c73ca2b0881191d0ef8e0d82c5484/README.md

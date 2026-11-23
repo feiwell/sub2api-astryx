@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh" data-astryx-theme="neutral">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <!--
+      The first frame is drawn before the app starts, so what the app sets up later is named here already: the theme
+      it mounts (data-astryx-theme above) and the colour mode picked on this device (stores/app.ts keeps it under "theme").
+    -->
+    <script nonce="__CSP_NONCE_VALUE__">
+      ;(function () {
+        try {
+          var mode = localStorage.getItem('theme')
+          if (mode === 'dark' || mode === 'light') {
+            document.documentElement.setAttribute('data-theme', mode)
+            document.querySelector('meta[name="color-scheme"]').content = mode
+          }
+        } catch (e) {}
+      })()
+    </script>
+    <title>Sub2API - AI API Gateway</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
