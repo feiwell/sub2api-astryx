@@ -190,8 +190,12 @@ body {
       }
 
       &::-webkit-scrollbar-thumb {
-        background: var(--sidenav-scroll-thumb);
-        border-radius: var(--radius-full);
+        /* Inset the paint within the full native drag target. */
+        min-height: var(--spacing-8);
+        border: solid transparent;
+        border-width: var(--spacing-2) var(--spacing-0-5);
+        border-radius: 50% / var(--spacing-3);
+        background: var(--sidenav-scroll-thumb) padding-box;
       }
     }
   }
