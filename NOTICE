@@ -14,6 +14,7 @@ Modification notice, November 23, 2026
 The downstream project provides a React and Astryx interface for Sub2API.
 It packages selected modules from the upstream frontend/src tree under shared/,
 uses local build paths, and replaces embedded provider artwork and the favicon.
+The homepage includes four model provider icons from the LobeHub collection.
 
 Standalone frontend source
 https://github.com/feiwell/sub2api-astryx

@@ -1,7 +1,7 @@
 import { getGatewayBaseURL } from '@/api/url'
 import { useId, useState } from 'react'
 import { Card } from '@astryxdesign/core/Card'
-import { Text } from '@astryxdesign/core/Text'
+import { Icon } from '@astryxdesign/core/Icon'
 import { VStack } from '@astryxdesign/core/Stack'
 import { Tab, TabList } from '@astryxdesign/core/TabList'
 import { ConfigFileBlock } from '~/components/keys/useKey/ConfigFileBlock'
@@ -75,7 +75,7 @@ export function QuickStart({ apiBaseUrl, label }: { apiBaseUrl: string; label: s
               key={id}
               value={id}
               label={name}
-              icon={<Text aria-hidden weight="semibold" color="secondary">{brand.initials}</Text>}
+              icon={<Icon icon={brand} />}
               panelId={panelId}
             />
           ))}

@@ -184,7 +184,7 @@ export function HomeLanding({
                   {providers.map(({ brand, name }) => (
                     <Card key={name} padding={4}>
                       <HStack gap={3} vAlign="center">
-                        <Text aria-hidden weight="semibold" color="secondary">{brand.initials}</Text>
+                        <Icon icon={brand} size="lg" />
                         <VStack gap={0.5}>
                           <Text weight="bold">{name}</Text>
                           <HStack gap={1.5} vAlign="center">
