@@ -6,8 +6,6 @@ Sub2API 换上了清爽的 Astryx 新前端。下面是 CauliRelay AI 正式站�
 
 <p align="center">
   <a href="./assets/readme/mobile-home.webp"><img src="./assets/readme/mobile-home.webp" width="245" align="top" alt="手机首页，模型卡片与接入入口"></a>
-  <a href="./assets/readme/mobile-quickstart.webp"><img src="./assets/readme/mobile-quickstart.webp" width="245" align="top" alt="手机端切换到 GPT 后显示的可复制调用示例"></a>
-  <a href="./assets/readme/mobile-group-form.webp"><img src="./assets/readme/mobile-group-form.webp" width="245" align="top" alt="手机端创建分组表单，包含平台、费率和模型定价"></a>
 </p>
 
 <details>
