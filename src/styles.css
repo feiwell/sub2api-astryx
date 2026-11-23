@@ -160,6 +160,43 @@ body {
   cursor: default;
 }
 
+/* SideNav owns the viewport directly around its sections. Keep native scrolling. */
+@media (pointer: fine) and (forced-colors: none) and (prefers-contrast: no-preference) {
+  .astryx-side-nav > :has(> .astryx-side-nav-section) {
+    --sidenav-scroll-thumb: var(--color-icon-secondary);
+    scrollbar-width: thin;
+    scrollbar-color: var(--sidenav-scroll-thumb) transparent;
+
+    &:is(:hover, :focus-within) {
+      --sidenav-scroll-thumb: color-mix(in srgb, var(--color-icon-secondary) 65%, var(--color-icon-primary));
+    }
+
+    @supports selector(::-webkit-scrollbar-button) {
+      /* Chromium only paints the individual scrollbar parts in auto mode. */
+      scrollbar-width: auto;
+      scrollbar-color: auto;
+
+      &::-webkit-scrollbar {
+        width: calc(var(--spacing-2) + var(--spacing-0-5));
+      }
+
+      &::-webkit-scrollbar-button {
+        display: none;
+        height: 0;
+      }
+
+      &::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      &::-webkit-scrollbar-thumb {
+        background: var(--sidenav-scroll-thumb);
+        border-radius: var(--radius-full);
+      }
+    }
+  }
+}
+
 /* ---------- Side nav user card ---------- */
 
 .sidenav-user {
