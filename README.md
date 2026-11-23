@@ -1,46 +1,43 @@
-# sub2api-astryx
+# Sub2API Astryx
 
-Sub2API 的独立 Web 控制台，使用 React、TypeScript 和 Astryx 构建。用户可以管理 API Key、查看用量和订单，管理员可以管理用户、分组、渠道和站点设置。中英文界面共用一个构建产物。
+Sub2API 换上了清爽的 Astryx 新前端。首页把模型卡片和调用示例放在一起。试完第一条请求，回到控制台就能看到它用了多少 token、花了多少钱。
 
-A standalone React + Astryx web console for a compatible Sub2API backend. The browser UI runs at `/` and uses the backend for authentication, account data and gateway traffic.
+- **试模型**　在内置首页切换 Claude、GPT 或 Gemini，复制对应的 `curl` 命令，填上自己的 API Key 就能发出请求。
+- **看用量**　账户余额、用量趋势和近期请求都在同一页。选好日期范围可以看走势，往下还能核对最近几次调用的模型和费用。
+- **改分组**　分组列表每行都有「编辑」按钮。复制分组、调整倍率和删除都收进「更多」，表格把位置留给分组数据。
+
+A standalone React frontend for a compatible Sub2API backend, with Chinese and English in one build.
 
 ## 本地启动
 
-准备一个可以从开发机访问的 Sub2API 后端。默认地址为 `http://localhost:8080`。使用 Node.js 22.13 或更新的 22.x，也可以使用 Node.js 24 或更高版本。仓库锁定了 pnpm 12.4.2。后端安装步骤见 [Sub2API 上游仓库](https://github.com/Wei-Shaw/sub2api)。
+准备一个开发机能访问的 Sub2API 后端，默认地址为 `http://localhost:8080`。使用 Node.js 22.13 或更新的 22.x，或使用 Node.js 24 及以上版本。仓库锁定了 pnpm 12.4.2。后端安装步骤见 [Sub2API 上游仓库](https://github.com/Wei-Shaw/sub2api) · [package.json](./package.json)
 
 ```sh
 git clone https://github.com/feiwell/sub2api-astryx.git
 cd sub2api-astryx
-
-# 首次使用 pnpm 时安装仓库指定的版本
 npm install --global pnpm@12.4.2
 pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-打开 `http://localhost:3100`。后端在其他地址时，运行 `cp .env.example .env.local`（PowerShell 可用 `Copy-Item .env.example .env.local`），将 `VITE_DEV_PROXY_TARGET` 改为后端地址，然后重启 `pnpm dev`。访问 `http://localhost:3100/api/v1/settings/public` 应能看到后端的公开设置 JSON。
+打开 `http://localhost:3100`。再打开 `http://localhost:3100/api/v1/settings/public`，应看到后端的公开设置 JSON。后端不在默认地址时，把 `.env.example` 复制为 `.env.local`（PowerShell 用 `Copy-Item .env.example .env.local`），改 `VITE_DEV_PROXY_TARGET` 后重新运行 `pnpm dev`。[.env.example](./.env.example)
+
+## 开发
 
 | 命令 | 用途 |
 | --- | --- |
-| `pnpm typecheck` | 检查 TypeScript 类型 |
-| `pnpm test` | 运行一次前端测试。开发时用 `pnpm test:watch` |
-| `pnpm build` | 检查类型并生成 `dist/` |
-| `pnpm preview` | 本地预览构建结果 |
+| `pnpm typecheck` | 检查 TypeScript |
+| `pnpm test` | 跑一遍前端测试。改代码时用 `pnpm test:watch` |
+| `pnpm build` | 检查 TypeScript 类型并生成前端构建产物 `dist/` |
+| `pnpm preview` | 本地预览 `dist/`，默认端口为 `4173`。API 和网关请求沿用开发代理 |
 
-### 前端配置
+先运行 `pnpm build`，再用 `pnpm preview` 查看构建结果。预览服务通过 `VITE_DEV_PROXY_TARGET` 连接后端。要验证生产环境的转发、缓存和 CSP，请使用下方的 Nginx 容器。[vite.config.ts](./vite.config.ts)
 
-`VITE_DEV_PORT` 和 `VITE_DEV_PROXY_TARGET` 控制开发服务器。浏览器配置在构建时写入产物，修改后需重新运行 `pnpm build`。后端密钥、OAuth 客户端密钥和支付凭据应保存在后端。完整变量见 [.env.example](./.env.example)。
-
-| 浏览器配置 | 默认行为 |
-| --- | --- |
-| `VITE_API_BASE_URL` | 使用同源的 `/api/v1`。该地址用于控制台业务 API，网关请求使用独立的 `/v1` 等路径 |
-| `VITE_WS_BASE_URL` | 运维 WebSocket 跟随 API 地址。单独指定时只填 `host[:port]`，页面使用 HTTPS 时自动使用 WSS |
-| `VITE_DEFAULT_SITE_NAME` | 后端尚未返回自定义站名时显示 `Sub2API` |
-| `VITE_PREVIEW_BUILTIN_HOME` | 默认为 `false`，使用后端配置的首页。已有站点配置了旧的自定义首页时，在 `.env.local` 中写入 `VITE_PREVIEW_BUILTIN_HOME=true` 并重新构建，即可展示 Astryx 内置首页 |
+持续集成在 Ubuntu 上使用 Node.js 22.x，按 `package.json` 安装锁定的 pnpm，再执行冻结锁文件安装、类型检查、测试、构建，并用构建好的 `dist/` 做镜像配置检查。[.github/workflows/ci.yml](./.github/workflows/ci.yml)
 
 ## 使用 Docker 部署
 
-在仓库根目录构建。镜像只打包 `dist/` 和 Nginx 配置，可以在部署时选择后端。
+先在仓库根目录生成 `dist/`，再构建 Docker 镜像。镜像打包 `dist/`、Nginx 配置和 nonce 脚本。基础镜像是 `nginx:1.30-alpine`（带 njs），进程以 `nginx` 用户监听容器内 `8080`。[Dockerfile](./Dockerfile) · [.dockerignore](./.dockerignore)
 
 ```sh
 pnpm install --frozen-lockfile
@@ -48,45 +45,71 @@ pnpm build
 docker build -t sub2api-astryx:local .
 ```
 
-后端在 Docker 网络中时，使用该网络的名称和后端的服务名。下面假设现有网络叫 `sub2api-net`，后端服务叫 `backend`，容器内监听 `8080`。
+后端已经在 Docker 网络里时，前端容器加入该网络，`SUB2API_UPSTREAM` 填网络内的 `服务名:端口`。下面假设网络名是 `sub2api-net`，后端服务名是 `backend`，容器内端口是 `8080`。端口映射绑在本机回环地址上。[deploy/site.conf.template](./deploy/site.conf.template)
 
 ```sh
 docker run --rm --network sub2api-net -p 127.0.0.1:3100:8080 -e SUB2API_UPSTREAM=backend:8080 sub2api-astryx:local
 ```
 
-若后端运行在宿主机，使用 Docker 的宿主机网关。Linux 上后端需监听容器能访问的宿主机接口。启动后打开 `http://localhost:3100`。
+后端跑在宿主机上时，使用 Docker 的宿主机网关。Linux 上的后端需要监听容器能够访问的宿主机地址。启动后打开 `http://localhost:3100`。[Dockerfile](./Dockerfile)
 
 ```sh
 docker run --rm -p 127.0.0.1:3100:8080 --add-host=host.docker.internal:host-gateway -e SUB2API_UPSTREAM=host.docker.internal:8080 sub2api-astryx:local
 ```
 
-`SUB2API_UPSTREAM` 接受内网 HTTP 后端的 `host:port`。对外提供 HTTPS 时，由入口终止 TLS，保留公开站点的 `Host`，并以 `-e SUB2API_PUBLIC_SCHEME=https` 启动前端容器。在后端和服务商控制台中使用同一个公开 HTTPS 源配置回调地址。若后端按来源 IP 限流，在入口和 Nginx 中配置受信代理的地址段，默认转发直连地址。
+`SUB2API_UPSTREAM` 接受内网 HTTP 后端的 `host:port`。对外提供 HTTPS 时，在入口终止 TLS，保留浏览器看到的 `Host`，并用 `-e SUB2API_PUBLIC_SCHEME=https` 启动前端容器。后端收到的 `X-Forwarded-Proto` 就是这个值。回调地址使用同一个公开 HTTPS 源，在后端和服务商控制台里配成同一个源。模板默认把 `X-Real-IP` 和 `X-Forwarded-For` 写成直连地址，并清掉 `Forwarded`。后端若按来源 IP 限流，要在入口和 Nginx 里另行配置受信代理网段。容器启动时只会替换 `SUB2API_UPSTREAM` 和 `SUB2API_PUBLIC_SCHEME`。[deploy/site.conf.template](./deploy/site.conf.template)
 
-### 路由与回调
+## 浏览器路由与网关转发
+
+<p align="center">
+  <img src="./assets/readme/request-flow.svg" width="720" alt="浏览器通过 Vite 或 Nginx 访问同一入口。/dashboard 打开 React 页面，/api/v1/settings/public 转到控制台 API，/v1/responses 转到模型网关。">
+</p>
+
+刷新 `/dashboard` 时，服务器返回 `index.html`，React 再根据登录状态和后端设置显示页面。控制台 API 和模型网关直接使用后端响应。下表列出部署示例的转发与缓存规则。[src/router/index.tsx](./src/router/index.tsx) · [scripts/devProxy.ts](./scripts/devProxy.ts)
 
 | 浏览器或客户端请求 | 处理方式 |
 | --- | --- |
-| `/`、`/dashboard`、`/admin/*`、`/setup` | 由 React 路由渲染，刷新时返回 `index.html` |
-| `/auth/callback`、`/auth/oidc/callback`、`/auth/wechat/payment/callback`、`/payment/result`、`/oauth/mcp/authorize` | 浏览器返回页或授权确认页，进入 SPA |
-| `/api/v1/*`、`/setup/status` 等 `/setup/*` 接口、`/health` | 原路径转发给后端 |
-| `/api/v1/auth/oauth/google/callback` 等 OAuth 提供方回调、`/api/v1/payment/webhook/stripe` 等支付通知 | 发给后端，保留请求方法、查询参数、正文及签名头 |
-| `/v1/*`、`/v1beta/*`、`/backend-api/codex/*`、`/antigravity/*` 和根路径别名（如 `/models`、`/responses`、`/chat/completions`、`/images/generations`） | 发给网关并保留后端状态码，流式响应实时转发 |
-| `/api/v1/admin/ops/ws/qps`、`/v1/responses` 等 WebSocket 路径 | 转发 HTTP Upgrade 并保留 `Sec-WebSocket-Protocol` |
-| `/licenses/`、`/licenses/*` | 提供构建内的许可文件并返回缺失文件的 404 |
-| `/assets/*`、`/logo.svg` | 返回文件和对应 MIME 类型。缺失文件返回 404，带哈希的构建资源可以长期缓存 |
+| `/`、`/dashboard`、`/admin/*`、`/setup` | React 路由。刷新时返回 `index.html` |
+| `/auth/callback`、`/auth/oidc/callback`、`/auth/wechat/payment/callback`、`/payment/result`、`/oauth/mcp/authorize` | 浏览器回跳或授权确认页，进入 SPA |
+| `/api/v1/*`、`/setup/*` 接口、`/health` | 原路径转发给后端。`/setup` 页面本身仍是 SPA |
+| `/api/v1/auth/oauth/*/callback`、`/api/v1/payment/webhook/*` 等 | 发给后端，保留方法、查询、正文和签名头 |
+| `/v1/*`、`/v1beta/*`、`/backend-api/codex/*`、`/antigravity/*`，以及 `/models`、`/responses`、`/chat/completions`、`/images/generations` 等根路径 | 发给网关，保留后端状态码并实时转发流式响应 |
+| `/api/v1/admin/ops/ws/qps`、`/v1/responses` 等 WebSocket | 转发 HTTP Upgrade，并保留 `Sec-WebSocket-Protocol` |
+| `/licenses/`、`/licenses/*` | 提供构建时随包分发的许可文件。缺失文件返回 404 |
+| `/assets/*` | 带内容哈希的构建资源，可长期缓存。缺失文件返回 404 |
+| `/logo.svg` 及其他静态文件 | 按扩展名返回，缓存策略为 `no-cache`。缺失文件返回 404 |
 
-例如，OIDC 身份提供方把浏览器送往后端的 `/api/v1/auth/oauth/oidc/callback`。后端处理后，再将浏览器送往前端的 `/auth/oidc/callback`。支付服务商同样把签名通知发给 webhook，用户则回到 `/payment/result`。
+例如，OIDC 身份提供方把浏览器送到后端的 `/api/v1/auth/oauth/oidc/callback`。后端处理完，再把浏览器送到前端的 `/auth/oidc/callback`。支付服务商把签名通知发到 webhook，付款用户回到 `/payment/result`。[deploy/site.conf.template](./deploy/site.conf.template)
 
-发布包使用通用登录控件。启用 Google 登录前，请按照官方品牌指南配置登录按钮并核对品牌要求。[Sign in with Google Branding Guidelines](https://developers.google.com/identity/branding-guidelines)
+运维 QPS 使用 `/api/v1/admin/ops/ws/qps`。`VITE_WS_BASE_URL` 为空时它跟随 API 所在来源。单独填写时只写 `host[:port]`，页面是 HTTPS 就用 `wss`。入口为 WebSocket 握手转发 Upgrade 头，并为网关的流式 HTTP 响应关闭缓冲。[src/lib/api/admin/ops.ts](./src/lib/api/admin/ops.ts) · [deploy/nginx.conf](./deploy/nginx.conf)
 
-### HTML 缓存与 CSP
+## 环境变量
 
-示例用 Nginx njs 为每次返回的 HTML 生成独立的 128 位随机 nonce，把同一值写入 CSP 响应头和主题初始化脚本的 `nonce` 属性。HTML 使用 `Cache-Control: no-store`。请让 CDN 保留该策略，缓存带哈希的 `/assets/` 文件。反向代理的完整路径与策略见 [deploy/site.conf.template](./deploy/site.conf.template)。
+将 `VITE_*` 视为公开配置。后端密钥、OAuth 客户端密钥和支付凭据保存在后端。[.env.example](./.env.example)
 
-示例 CSP 默认允许同源资源。启用第三方验证码、嵌入的支付 SDK 或外部自定义首页时，把实际使用的服务商域名加入对应的 `script-src`、`connect-src`、`frame-src` 等指令，保留脚本 nonce。若单独设置了 WebSocket 主机，也要将其加入 `connect-src`。
+| 变量 | 默认行为 |
+| --- | --- |
+| `VITE_DEV_PROXY_TARGET` | 开发和本地预览使用的后端源地址。默认为 `http://localhost:8080`，格式为协议、主机和可选端口 |
+| `VITE_DEV_PORT` | `pnpm dev` 的默认端口为 `3100` |
+| `VITE_API_BASE_URL` | 默认 `/api/v1`，供控制台业务 API 使用。网关地址去掉 `/api/v1` 后缀，并保留来源和已有的路径前缀 |
+| `VITE_WS_BASE_URL` | 留空时运维 WebSocket 跟随 API 来源。指定主机时使用 `host[:port]` 格式 |
+| `VITE_DEFAULT_SITE_NAME` | 后端还没返回自定义站名时显示 `Sub2API` |
+| `VITE_PREVIEW_BUILTIN_HOME` | 默认 `false`，沿用后端配置的首页。旧站点若配了自定义首页，在 `.env.local` 写 `true` 并重新构建，才显示 Astryx 内置首页 |
 
-启用 Airwallex 支付时，`/payment/airwallex` 会按需从官方 CDN 加载 SDK。在 Nginx 模板的 `script-src` 中加入 `https://static.airwallex.com`，按所用支付环境配置 SDK 所需的网络和 iframe 来源，再重新构建镜像。顾客完成付款后返回本站的 `/payment/result`。[Airwallex 托管收银台集成指南](https://www.airwallex.com/docs/payments/online-payments/hosted-payment-page/guest-user-checkout)
+前两项配置本地 Vite 服务。后四项在构建时写入浏览器产物，修改后需重新运行 `pnpm build`。使用容器部署时，再用新的 `dist/` 构建镜像。[vite.config.ts](./vite.config.ts) · [shared/api/url.ts](./shared/api/url.ts)
+
+## 高级运维
+
+示例 Nginx 用 njs 为每一次 HTML 响应生成 16 字节（128 位）随机数，再编码成 base64。同一个值写进 CSP 的 `nonce-` 和主题初始化脚本的 `nonce` 属性。构建产物里只放占位符 `__CSP_NONCE_VALUE__`。这条 HTML 响应带 `Cache-Control: no-store`。CDN 要保留该策略，只长期缓存带哈希的 `/assets/`。[deploy/nonce.js](./deploy/nonce.js) · [index.html](./index.html)
+
+示例 CSP 默认从同源加载脚本，并限制对外部服务的连接。启用第三方验证码、支付 SDK 或外部自定义首页时，把实际域名加进对应的 `script-src`、`connect-src`、`frame-src` 等指令，并保留脚本 nonce。模板在 `connect-src` 中放行当前页面主机的 `ws` 和 `wss`。单独指定 WebSocket 主机时，也要把该主机加进去。CSP 写在模板里，改完要重新构建镜像。[deploy/site.conf.template](./deploy/site.conf.template)
+
+启用 Airwallex 时，`/payment/airwallex` 会按需从官方 CDN 加载 SDK。在模板的 `script-src` 加入 `https://static.airwallex.com`，再按所用支付环境补上 SDK 需要的网络和 iframe 来源，然后重新构建镜像。付完款的人回到本站 `/payment/result`。[Airwallex 托管收银台](https://www.airwallex.com/docs/payments/online-payments/hosted-payment-page/guest-user-checkout) · [Airwallex JS SDK](https://www.airwallex.com/docs/js)
+
+发布包使用通用登录控件。启用 Google 登录前，先按官方品牌指南配置按钮并核对展示要求。[Sign in with Google Branding Guidelines](https://developers.google.com/identity/branding-guidelines)
 
 ## 许可证
 
-本仓库发布源代码和 CI 配置，部署镜像由运营方按上文步骤构建。构建后可以打开站点的 `/licenses/` 阅读随包分发的许可文本，或直接访问 `/licenses/THIRD_PARTY_NOTICES.md` 和 `/licenses/bundled-dependencies.md`。发布修改后的构建时，请随包保留这些文件，并向接收者提供与所分发构建对应的完整源码和构建脚本，例如在站点链接到该版的源码归档或 Git 提交。[前端源码与版本](https://github.com/feiwell/sub2api-astryx) · [项目许可](./LICENSE) · [第三方许可说明](./THIRD_PARTY_NOTICES.md)
+本仓库以 LGPL-3.0-or-later 发布。`LICENSE` 保留上游文本，`COPYING.LESSER` 是 GNU LGPL 第 3 版，`COPYING` 是 LGPL 所纳入的 GNU GPL 第 3 版。上游由来和修改说明见 `NOTICE`。[LICENSE](./LICENSE) · [NOTICE](./NOTICE) · [COPYING.LESSER](./COPYING.LESSER)
+
+仓库提供源代码和 CI 配置，部署方可以按上文构建镜像。构建之后可以打开站点的 `/licenses/` 阅读随包许可，直接地址是 `/licenses/THIRD_PARTY_NOTICES.md` 和 `/licenses/bundled-dependencies.md`。分发修改过的构建时，保留这些文件，并向接收者提供该构建对应的完整源码和构建脚本，例如链接到该版本的源码归档或 Git 提交。[前端源码](https://github.com/feiwell/sub2api-astryx) · [项目许可](./LICENSE) · [第三方许可说明](./THIRD_PARTY_NOTICES.md)
