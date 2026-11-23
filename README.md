@@ -1,12 +1,21 @@
 # Sub2API Astryx
 
-Sub2API 换上了清爽的 Astryx 新前端。首页把模型卡片和调用示例放在一起。试完第一条请求，回到控制台就能看到它用了多少 token、花了多少钱。
+Sub2API 换上了清爽的 Astryx 新前端。下面是 CauliRelay AI 正式站的实际画面。
 
-- **试模型**　在内置首页切换 Claude、GPT 或 Gemini，复制对应的 `curl` 命令，填上自己的 API Key 就能发出请求。
-- **看用量**　账户余额、用量趋势和近期请求都在同一页。选好日期范围可以看走势，往下还能核对最近几次调用的模型和费用。
-- **改分组**　分组列表每行都有「编辑」按钮。复制分组、调整倍率和删除都收进「更多」，表格把位置留给分组数据。
+## 手机端
 
-A standalone React frontend for a compatible Sub2API backend, with Chinese and English in one build.
+<p align="center">
+  <a href="./assets/readme/mobile-home.webp"><img src="./assets/readme/mobile-home.webp" width="245" align="top" alt="手机首页，模型卡片与接入入口"></a>
+  <a href="./assets/readme/mobile-quickstart.webp"><img src="./assets/readme/mobile-quickstart.webp" width="245" align="top" alt="手机端切换到 GPT 后显示的可复制调用示例"></a>
+  <a href="./assets/readme/mobile-group-form.webp"><img src="./assets/readme/mobile-group-form.webp" width="245" align="top" alt="手机端创建分组表单，包含平台、费率和模型定价"></a>
+</p>
+
+<details>
+<summary>查看桌面首页 · 浅色主题</summary>
+
+[![桌面端首页，模型卡片横向排列，下方展示 Claude 的调用示例](./assets/readme/desktop-home.webp)](./assets/readme/desktop-home.webp)
+
+</details>
 
 ## 本地启动
 
