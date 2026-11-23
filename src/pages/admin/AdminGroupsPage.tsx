@@ -3,7 +3,7 @@ import { Card } from '@astryxdesign/core/Card'
 import { Text } from '@astryxdesign/core/Text'
 import { Button } from '@astryxdesign/core/Button'
 import { Badge } from '@astryxdesign/core/Badge'
-import { Table, proportional, pixel, type TableColumn } from '@astryxdesign/core/Table'
+import { Table, proportional, pixel, useTableStickyColumns, type TableColumn } from '@astryxdesign/core/Table'
 import { HStack, VStack } from '@astryxdesign/core/Stack'
 import { TextInput } from '@astryxdesign/core/TextInput'
 import { Selector } from '@astryxdesign/core/Selector'
@@ -16,6 +16,8 @@ import { Grid } from '@astryxdesign/core/Grid'
 import { NumberInput } from '@astryxdesign/core/NumberInput'
 import { CheckboxInput } from '@astryxdesign/core/CheckboxInput'
 import { MoreMenu } from '@astryxdesign/core/MoreMenu'
+import type { DropdownMenuOption } from '@astryxdesign/core/DropdownMenu'
+import { useMediaQuery } from '@astryxdesign/core/hooks'
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -56,6 +58,9 @@ import {
 // Labels come from admin.groups.platforms.<value>
 const PLATFORMS = ['anthropic', 'openai', 'gemini', 'antigravity', 'grok', 'kimi', 'zhipu', 'deepseek', 'minimax', 'composite'] as const
 
+const PINNED_ACTIONS = { endKeys: ['actions'] }
+const NO_PINNED_COLUMNS = {}
+
 interface GroupRow extends AdminGroup, Record<string, unknown> {
   __id: string
 }
@@ -63,6 +68,8 @@ interface GroupRow extends AdminGroup, Record<string, unknown> {
 export function AdminGroupsPage() {
   const { t } = useI18n()
   const isSimpleMode = useAuthStore(selectIsSimpleMode)
+  const hasRoomToPin = useMediaQuery('(min-width: 768px)', true)
+  const pinned = useTableStickyColumns<GroupRow>(hasRoomToPin ? PINNED_ACTIONS : NO_PINNED_COLUMNS)
 
   const [groups, setGroups] = useState<AdminGroup[]>([])
   const [loading, setLoading] = useState(false)
@@ -335,52 +342,50 @@ export function AdminGroupsPage() {
     {
       key: 'actions',
       header: t('admin.groups.columns.actions'),
-      width: pixel(220),
-      renderCell: (group: GroupRow) => (
-        <HStack gap={1} vAlign="center">
-          <Button
-            label={t('common.edit')}
-            variant="ghost"
-            icon={<Icon icon={PencilSquareIcon} />}
-            onClick={() => void openEditModal(group)}
-          />
-          {!isSimpleMode && (
+      width: pixel(128),
+      align: 'end',
+      renderCell: (group: GroupRow) => {
+        const items: DropdownMenuOption[] = []
+        if (!isSimpleMode) {
+          items.push({
+            label: t('admin.groups.duplicate'),
+            icon: <Icon icon={DocumentDuplicateIcon} />,
+            onClick: () => void handleDuplicate(group),
+          })
+          if (group.platform === 'composite') {
+            items.push({ label: t('admin.groups.compositeRoutes.action'), onClick: () => setCompositeRoutesGroup(group) })
+          }
+          items.push(
+            { label: t('admin.groups.rateMultipliers'), onClick: () => setRateMultipliersGroup(group) },
+            { label: t('admin.groups.rpmOverrides'), onClick: () => setRpmOverridesGroup(group) },
+            { type: 'divider' },
+          )
+        }
+        items.push({
+          label: t('common.delete'),
+          icon: <Icon icon={TrashIcon} />,
+          variant: 'destructive',
+          onClick: () => openDeleteDialog(group),
+        })
+
+        return (
+          <HStack gap={1} hAlign="end" vAlign="center">
             <Button
-              label={t('admin.groups.duplicate')}
+              label={t('common.edit')}
+              size="sm"
               variant="ghost"
-              icon={<Icon icon={DocumentDuplicateIcon} />}
-              onClick={() => handleDuplicate(group)}
+              icon={<Icon icon={PencilSquareIcon} />}
+              onClick={() => void openEditModal(group)}
             />
-          )}
-          <Button
-            label={t('common.delete')}
-            variant="ghost"
-            icon={<Icon icon={TrashIcon} />}
-            onClick={() => openDeleteDialog(group)}
-          />
-          {!isSimpleMode && (
             <MoreMenu
-              label={t('admin.groups.columns.actions')}
+              label={`${t('common.more')} · ${group.name}`}
               size="sm"
               alignment="end"
-              items={[
-                // Gap 45: composite routes (composite groups only, like the Vue row action)
-                ...(group.platform === 'composite'
-                  ? [
-                      {
-                        label: t('admin.groups.compositeRoutes.action'),
-                        onClick: () => setCompositeRoutesGroup(group),
-                      },
-                    ]
-                  : []),
-                // Gap 46: per-user rate multipliers and RPM overrides
-                { label: t('admin.groups.rateMultipliers'), onClick: () => setRateMultipliersGroup(group) },
-                { label: t('admin.groups.rpmOverrides'), onClick: () => setRpmOverridesGroup(group) },
-              ]}
+              items={items}
             />
-          )}
-        </HStack>
-      ),
+          </HStack>
+        )
+      },
     },
   ]
 
@@ -450,6 +455,7 @@ export function AdminGroupsPage() {
                   columns={columns}
                   data={rows}
                   idKey="__id"
+                  plugins={{ pinned }}
                   density="compact"
                   dividers="rows"
                   hasHover
