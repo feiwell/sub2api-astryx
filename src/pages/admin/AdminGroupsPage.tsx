@@ -105,6 +105,23 @@ export function AdminGroupsPage() {
 
   const [editForm, setEditForm] = useState<UpdateGroupRequest>({})
 
+  // Live concurrency per group, keyed by group id. Supplementary: a failed call
+  // leaves the column blank instead of failing the page.
+  const [capacity, setCapacity] = useState<Record<number, { used: number; max: number }>>({})
+
+  const loadCapacity = useCallback(async () => {
+    try {
+      const rows = await adminAPI.groups.getCapacitySummary()
+      const next: Record<number, { used: number; max: number }> = {}
+      for (const row of rows) {
+        next[row.group_id] = { used: row.concurrency_used, max: row.concurrency_max }
+      }
+      setCapacity(next)
+    } catch {
+      setCapacity({})
+    }
+  }, [])
+
   const loadGroups = useCallback(async () => {
     setLoading(true)
     try {
@@ -114,12 +131,13 @@ export function AdminGroupsPage() {
 
       const response = await adminAPI.groups.list(page, pageSize, filters)
       setGroups(response.items)
+      void loadCapacity()
     } catch (error: any) {
       toast.error(error.message || t('admin.groups.failedToLoad'))
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, searchQuery, platformFilter, t])
+  }, [page, pageSize, searchQuery, platformFilter, t, loadCapacity])
 
   useEffect(() => {
     loadGroups()
@@ -338,6 +356,20 @@ export function AdminGroupsPage() {
       header: t('admin.groups.columns.accounts'),
       width: pixel(100),
       renderCell: (group: GroupRow) => <Text type="body">{group.account_count || 0}</Text>,
+    },
+    {
+      key: 'capacity',
+      header: t('admin.groups.columns.capacity'),
+      width: pixel(110),
+      renderCell: (group: GroupRow) => {
+        const live = capacity[group.id]
+        if (!live) return <Text type="supporting">—</Text>
+        return (
+          <Text type="body">
+            {live.used} / {live.max}
+          </Text>
+        )
+      },
     },
     {
       key: 'actions',
