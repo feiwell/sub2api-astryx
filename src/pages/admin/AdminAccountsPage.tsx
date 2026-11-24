@@ -347,6 +347,7 @@ export function AdminAccountsPage() {
   const [platformFilter, setPlatformFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
+  const [groupFilter, setGroupFilter] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<AccountListItem | null>(null)
@@ -387,6 +388,7 @@ export function AdminAccountsPage() {
         platform: platformFilter,
         status: statusFilter,
         type: typeFilter,
+        group: groupFilter,
         search: searchQuery,
         lite: '1',
       })
@@ -398,7 +400,7 @@ export function AdminAccountsPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, platformFilter, statusFilter, typeFilter, searchQuery, t])
+  }, [page, pageSize, platformFilter, statusFilter, typeFilter, groupFilter, searchQuery, t])
 
   // Load on mount and when filters change
   useEffect(() => {
@@ -428,6 +430,30 @@ export function AdminAccountsPage() {
     [t, typeLabel],
   )
 
+  // Groups are only needed to fill this filter, so they are fetched once and a
+  // failed call just leaves the "all groups" entry behind.
+  const [groupOptions, setGroupOptions] = useState<{ value: string; label: string }[]>([
+    { value: '', label: t('admin.accounts.allGroups') },
+  ])
+  useEffect(() => {
+    let cancelled = false
+    adminAPI.groups
+      .getAll()
+      .then((groups) => {
+        if (cancelled) return
+        setGroupOptions([
+          { value: '', label: t('admin.accounts.allGroups') },
+          // The list endpoint's `group` filter is a string like the platform and
+          // type filters beside it, so it takes the group name, not the id.
+          ...groups.map((group) => ({ value: group.name, label: group.name })),
+        ])
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [t])
+
   // Handle search with debounce
   const handleSearchChange = useCallback((value: string) => {
     setSearchQuery(value)
@@ -450,6 +476,11 @@ export function AdminAccountsPage() {
     setPage(1)
   }, [])
 
+  const handleGroupChange = useCallback((value: string) => {
+    setGroupFilter(value)
+    setPage(1)
+  }, [])
+
   // Handle refresh
   const handleRefresh = useCallback(() => {
     loadAccounts()
@@ -462,8 +493,8 @@ export function AdminAccountsPage() {
 
   // Export uses the selection when present, otherwise the current list filters
   const exportFilters = useMemo(
-    () => ({ platform: platformFilter, type: typeFilter, status: statusFilter, search: searchQuery }),
-    [platformFilter, typeFilter, statusFilter, searchQuery],
+    () => ({ platform: platformFilter, type: typeFilter, status: statusFilter, group: groupFilter, search: searchQuery }),
+    [platformFilter, typeFilter, statusFilter, groupFilter, searchQuery],
   )
   const selectedIdList = useMemo(() => [...selectedIds], [selectedIds])
 
@@ -675,11 +706,11 @@ export function AdminAccountsPage() {
       platform: platformFilter,
       type: typeFilter,
       status: statusFilter,
-      group: '',
+      group: groupFilter,
       search: searchQuery,
       privacy_mode: '',
     }),
-    [platformFilter, typeFilter, statusFilter, searchQuery],
+    [platformFilter, typeFilter, statusFilter, groupFilter, searchQuery],
   )
 
   /**
@@ -1133,6 +1164,14 @@ export function AdminAccountsPage() {
                   value={typeFilter}
                   onChange={handleTypeChange}
                   options={typeOptions}
+                />
+              </StackItem>
+              <StackItem size="fill">
+                <Selector
+                  label={t('admin.accounts.groups')}
+                  value={groupFilter}
+                  onChange={handleGroupChange}
+                  options={groupOptions}
                 />
               </StackItem>
             </HStack>
