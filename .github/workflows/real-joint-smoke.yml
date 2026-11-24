@@ -108,7 +108,7 @@ jobs:
             REDIS_HOST=127.0.0.1 REDIS_PORT=6379 REDIS_DB=0 REDIS_PASSWORD= \
             ADMIN_EMAIL=ci-smoke-admin@invalid.example ADMIN_PASSWORD=ci-only-admin-password \
             JWT_SECRET=ci-only-jwt-secret-0123456789-abcdef-0123456789 \
-            TOTP_ENCRYPTION_KEY=ci-only-totp-key-0123456789-abcdef-0123456789 \
+            TOTP_ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef \
             RUN_MODE=standard MCP_PUBLIC_URL= UPDATE_GITHUB_TOKEN= \
             LOG_OUTPUT_TO_FILE=false LOG_OUTPUT_TO_STDOUT=true \
             "$work/sub2api" > "$RUNNER_TEMP/sub2api.log" 2>&1 &
