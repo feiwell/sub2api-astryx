@@ -33,6 +33,7 @@ import {
   Shield,
   Globe,
   Pencil,
+  Plus,
 } from 'lucide-react'
 import { adminAPI } from '~/lib/api/admin'
 import type { AdminGroup, AdminUser, UserAttributeDefinition } from '@/types'
@@ -466,9 +467,32 @@ export function AdminUsersPage() {
       {
         key: 'balance',
         header: t('admin.users.columns.balance'),
-        width: pixel(120),
+        width: pixel(150),
         sortable: true,
-        renderCell: (row: UserRow) => <Text type="supporting" hasTabularNumbers>${row.balance.toFixed(4)}</Text>,
+        renderCell: (row: UserRow) => {
+          const user = users.find((u) => u.id === row.id)
+          return (
+            <HStack gap={1} vAlign="center">
+              <Text type="supporting" hasTabularNumbers>
+                ${row.balance.toFixed(4)}
+              </Text>
+              {user && (
+                <Tooltip content={t('admin.users.deposit')}>
+                  <IconButton
+                    label={t('admin.users.deposit')}
+                    icon={<Icon icon={Plus} />}
+                    variant="ghost"
+                    onClick={() => {
+                      setSelectedUser(user)
+                      setBalanceOperation('add')
+                      setShowBalance(true)
+                    }}
+                  />
+                </Tooltip>
+              )}
+            </HStack>
+          )
+        },
       },
       {
         key: 'group',
