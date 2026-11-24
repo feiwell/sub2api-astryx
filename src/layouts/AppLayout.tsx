@@ -8,6 +8,7 @@ import { IconButton } from '@astryxdesign/core/IconButton'
 import { Avatar } from '@astryxdesign/core/Avatar'
 import { DropdownMenu } from '@astryxdesign/core/DropdownMenu'
 import { Text } from '@astryxdesign/core/Text'
+import { VStack } from '@astryxdesign/core/Stack'
 import {
   ArrowRightStartOnRectangleIcon,
   BookOpenIcon,
@@ -16,6 +17,7 @@ import {
   UserCircleIcon,
 } from '@heroicons/react/24/outline'
 import { useI18n } from '~/i18n'
+import { VersionBadge } from '~/components/VersionBadge'
 import { useAppStore } from '~/stores/app'
 import { useAuthStore, selectIsAdmin, selectIsSimpleMode } from '~/stores/auth'
 import { useBatchImageAccess } from '~/stores/batchImageAccess'
@@ -175,7 +177,10 @@ export function AppLayout({ children }: { children?: React.ReactNode } = {}) {
         <SideNav
           collapsible
           header={
-            <SideNavHeading as={PageTurnLink} heading={siteName} headingHref="/dashboard" icon={<NavIcon icon={<SiteLogo />} />} />
+            <VStack gap={1} hAlign="stretch">
+              <SideNavHeading as={PageTurnLink} heading={siteName} headingHref="/dashboard" icon={<NavIcon icon={<SiteLogo />} />} />
+              <VersionBadge onNavigate={turnTo} />
+            </VStack>
           }
           footer={<UserCard />}
           footerIcons={

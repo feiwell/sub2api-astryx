@@ -39,6 +39,16 @@ import { UpdateSettingsTab } from './settings/UpdateSettingsTab'
 
 type SettingsTab = 'general' | 'agreement' | 'features' | 'security' | 'users' | 'gateway' | 'payment' | 'email' | 'backup' | 'update'
 
+const SETTINGS_TABS: readonly SettingsTab[] = [
+  'general', 'agreement', 'features', 'security', 'users', 'gateway', 'payment', 'email', 'backup', 'update',
+]
+
+/** `?tab=update` opens straight on that panel; anything unknown falls back to General. */
+function tabFromLocation(): SettingsTab {
+  const raw = new URLSearchParams(window.location.search).get('tab')
+  return raw && (SETTINGS_TABS as readonly string[]).includes(raw) ? (raw as SettingsTab) : 'general'
+}
+
 const TAB_ICONS = {
   general: Home,
   agreement: FileText,
@@ -54,7 +64,7 @@ const TAB_ICONS = {
 
 export function AdminSettingsPage() {
   const { t } = useI18n()
-  const [activeTab, setActiveTab] = useState<SettingsTab>('general')
+  const [activeTab, setActiveTab] = useState<SettingsTab>(tabFromLocation)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [settings, setSettings] = useState<SystemSettings | null>(null)
