@@ -443,9 +443,9 @@ export function AdminAccountsPage() {
         if (cancelled) return
         setGroupOptions([
           { value: '', label: t('admin.accounts.allGroups') },
-          // The list endpoint's `group` filter is a string like the platform and
-          // type filters beside it, so it takes the group name, not the id.
-          ...groups.map((group) => ({ value: group.name, label: group.name })),
+          // The backend validates this as a group id and rejects names with
+          // INVALID_GROUP_FILTER.
+          ...groups.map((group) => ({ value: String(group.id), label: group.name })),
         ])
       })
       .catch(() => undefined)
