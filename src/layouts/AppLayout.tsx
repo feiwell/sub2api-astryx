@@ -115,17 +115,27 @@ function UserCard() {
  * until the user toggles it; a closed group, or any group on the collapsed rail, is highlighted
  * while one of its pages is showing.
  */
-function AdminNavGroup({ group, pathname }: { group: NavGroup; pathname: string }) {
+function AdminNavGroup({
+  group,
+  pathname,
+  isOpen,
+  onToggle,
+}: {
+  group: NavGroup
+  pathname: string
+  /** Open state is owned by the layout so only one group can be open at a time. */
+  isOpen: boolean
+  onToggle: (open: boolean) => void
+}) {
   const { isCollapsed: isRailCollapsed } = useSideNavCollapse()
-  const [openOverride, setOpenOverride] = useState<boolean | null>(null)
   const isActive = isNavGroupActive(group, pathname)
-  const isOpen = openOverride ?? isActive
+  const expanded = isOpen
   return (
     <SideNavItem
       label={group.label}
       icon={group.icon}
-      isSelected={isActive && (isRailCollapsed || !isOpen)}
-      collapsible={{ isCollapsed: !isOpen, onCollapsedChange: (isNowCollapsed) => setOpenOverride(!isNowCollapsed) }}>
+      isSelected={isActive && (isRailCollapsed || !expanded)}
+      collapsible={{ isCollapsed: !expanded, onCollapsedChange: (isNowCollapsed) => onToggle(!isNowCollapsed) }}>
       {group.items.map((item) => (
         <SideNavItem
           key={item.path}
@@ -167,6 +177,12 @@ export function AppLayout({ children }: { children?: React.ReactNode } = {}) {
     [settings, isAdmin, t('admin.dashboard')],
   )
   const hasAdminNav = adminEntries.length > 0
+  // Only one admin nav group stays open, so opening one closes the others.
+  const [openNavGroupId, setOpenNavGroupId] = useState<string | null>(null)
+  // A navigation of its own hands the open group back to the route.
+  useEffect(() => {
+    setOpenNavGroupId(null)
+  }, [pathname])
   // The side nav lists the admin pages above the user's own.
   const placeOf = useCallback((path: string) => navPlace([...adminEntries, ...items], path), [adminEntries, items])
 
@@ -204,7 +220,19 @@ export function AppLayout({ children }: { children?: React.ReactNode } = {}) {
             <SideNavSection title={t('astryx.adminSection')}>
               {adminEntries.map((entry) =>
                 isNavGroup(entry) ? (
-                  <AdminNavGroup key={entry.id} group={entry} pathname={pathname} />
+                  <AdminNavGroup
+                    key={entry.id}
+                    group={entry}
+                    pathname={pathname}
+                    // Until the user opens something, follow the route; after that the
+                    // tapped group alone stays open.
+                    isOpen={
+                      openNavGroupId === null
+                        ? isNavGroupActive(entry, pathname)
+                        : openNavGroupId === entry.id
+                    }
+                    onToggle={(open) => setOpenNavGroupId(open ? entry.id : null)}
+                  />
                 ) : (
                   <SideNavItem
                     key={entry.path}
