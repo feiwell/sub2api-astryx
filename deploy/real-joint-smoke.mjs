@@ -2,6 +2,7 @@
 // The frontend is served by nginx and every API assertion is against the
 // downloaded official Sub2API process (never a fixture or a production URL).
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 
 const gateway = process.env.SMOKE_URL || 'http://127.0.0.1:8080';
 const backend = process.env.BACKEND_URL || 'http://127.0.0.1:18081';
@@ -60,8 +61,10 @@ assert.ok(entryAsset, 'entry asset');
 const asset = await request(gateway, entryAsset);
 assert.equal(asset.status, 200, `entry asset ${entryAsset}`);
 assert.match(asset.headers.get('content-type') || '', /javascript/i, 'entry asset content type');
-const assetBody = await asset.text();
-assert.ok(assetBody.length > 1000, 'entry asset is non-empty');
+const servedAsset = Buffer.from(await asset.arrayBuffer());
+const packagedAsset = await readFile(`/srv/astryx${entryAsset}`);
+assert.ok(servedAsset.length > 0, 'entry asset is non-empty');
+assert.deepEqual(servedAsset, packagedAsset, 'served JS must exactly match the verified dist asset');
 
 const missingAsset = await request(gateway, '/assets/this-file-must-not-exist.js');
 assert.equal(missingAsset.status, 404, 'missing asset must not fall back to SPA');
