@@ -24,8 +24,9 @@ vi.mock('./settings/GatewaySettingsTab', () => ({ GatewaySettingsTab: () => <p>g
 vi.mock('./settings/PaymentSettingsTab', () => ({ PaymentSettingsTab: () => <p>payment panel</p> }))
 vi.mock('./settings/EmailSettingsTab', () => ({ EmailSettingsTab: () => <p>email panel</p> }))
 vi.mock('./settings/BackupSettingsTab', () => ({ BackupSettingsTab: () => <p>backup panel</p> }))
+vi.mock('./settings/UpdateSettingsTab', () => ({ UpdateSettingsTab: () => <p>update panel</p> }))
 
-const otherTabs = ['agreement', 'features', 'security', 'users', 'gateway', 'payment', 'email', 'backup']
+const otherTabs = ['agreement', 'features', 'security', 'users', 'gateway', 'payment', 'email', 'backup', 'update']
 
 describe('AdminSettingsPage', () => {
   beforeEach(() => {
@@ -40,11 +41,11 @@ describe('AdminSettingsPage', () => {
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
   })
 
-  it('opens General with the saved settings and all nine sections available', async () => {
+  it('opens General with the saved settings and all ten sections available', async () => {
     render(<AdminSettingsPage />)
     const nav = await screen.findByRole('navigation')
     expect(screen.getByRole('heading', { name: 'admin.settings.title' })).toBeVisible()
-    expect(within(nav).getAllByRole('button')).toHaveLength(9)
+    expect(within(nav).getAllByRole('button')).toHaveLength(10)
     expect(within(nav).getByRole('button', { name: 'admin.settings.tabs.general' })).toHaveAttribute('aria-current', 'true')
     expect(screen.getByText('Sub2API')).toBeVisible()
     expect(getSettings).toHaveBeenCalledTimes(1)
