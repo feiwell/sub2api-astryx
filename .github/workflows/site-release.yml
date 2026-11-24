@@ -1,0 +1,52 @@
+name: Prepare site release
+run-name: 'Site bundle: Sub2API ${{ inputs.backend }} + Astryx ${{ inputs.frontend }}'
+on:
+  workflow_dispatch:
+    inputs:
+      backend:
+        description: 'Official Sub2API tag (e.g. v0.2.25)'
+        required: true
+        type: string
+      frontend:
+        description: 'Full Astryx SHA with a successful main push CI'
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  package:
+    if: github.ref == 'refs/heads/main' && github.repository == 'feiwell/sub2api-astryx'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Verify official backend and tested frontend
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.backend }}
+          SHA: ${{ inputs.frontend }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ $TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && $SHA =~ ^[0-9a-f]{40}$ ]]
+          mkdir frontend site
+          run=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=main&event=push&status=success&head_sha=$SHA" | jq -er --arg sha "$SHA" --arg repo "$GITHUB_REPOSITORY" '[.workflow_runs[] | select(.head_sha==$sha and .head_repository.full_name==$repo and .event=="push" and .head_branch=="main" and .conclusion=="success")] | first.id // error("no successful main CI")')
+          gh run download "$run" -R "$GITHUB_REPOSITORY" -n "astryx-main-$SHA" -D frontend
+          jq -e --arg sha "$SHA" '.source_sha==$sha and .channel=="main"' frontend/manifest.json >/dev/null
+          (cd frontend; [[ $(cat dist.tar.gz.sha256) =~ ^[a-f0-9]{64}[[:space:]][[:space:]]dist\.tar\.gz$ ]]; sha256sum --check --strict dist.tar.gz.sha256)
+          bin="sub2api_${TAG#v}_linux_amd64.tar.gz"
+          gh api "repos/Wei-Shaw/sub2api/releases/tags/$TAG" > upstream.json
+          digest=$(jq -er --arg tag "$TAG" --arg bin "$bin" 'select(.tag_name==$tag and .draft==false and .prerelease==false) | .assets[] | select(.name==$bin) | .digest' upstream.json)
+          [[ $digest =~ ^sha256:[a-f0-9]{64}$ ]]
+          curl --fail --location --proto '=https' --proto-redir '=https' -o "site/$bin" "https://github.com/Wei-Shaw/sub2api/releases/download/$TAG/$bin"
+          (cd site; printf '%s  %s\n' "${digest#sha256:}" "$bin" | sha256sum --check --strict)
+          cp frontend/dist.tar.gz site/astryx-dist.tar.gz
+          jq -n --arg backend "$TAG" --arg sha "$SHA" --argjson run "$run" '{backend_repo:"Wei-Shaw/sub2api",backend_tag:$backend,platform:"linux/amd64",frontend_repo:"feiwell/sub2api-astryx",frontend_sha:$sha,frontend_ci_run:$run}' > site/site-release.json
+          (cd site; sha256sum *.tar.gz site-release.json > SHA256SUMS)
+      - name: Upload joint release bundle (no production deployment)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: site-${{ inputs.backend }}-${{ inputs.frontend }}-linux-amd64
+          path: site/
+          if-no-files-found: error
+          compression-level: 0
