@@ -1168,7 +1168,7 @@ export function AdminAccountsPage() {
               </StackItem>
               <StackItem size="fill">
                 <Selector
-                  label={t('admin.accounts.groups')}
+                  label={t('admin.accounts.columns.groups')}
                   value={groupFilter}
                   onChange={handleGroupChange}
                   options={groupOptions}
