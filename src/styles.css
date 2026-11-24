@@ -523,3 +523,17 @@ body {
 .compliance-document :is(h1, h2, strong) { font-weight: bold; }
 .compliance-document > * + * { margin-block-start: var(--spacing-3); }
 .compliance-document :is(ul, ol) { padding-inline-start: var(--spacing-5); list-style: revert; }
+
+.row-action-edit:is(:hover, :focus-visible) {
+  background-color: var(--color-background-muted);
+  color: var(--color-text-accent);
+}
+
+.row-action-delete {
+  color: var(--color-text-error);
+}
+
+.row-action-delete:is(:hover, :focus-visible) {
+  background-color: var(--color-error-muted);
+  color: var(--color-text-error);
+}

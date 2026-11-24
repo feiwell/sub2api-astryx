@@ -1,23 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertDialog } from '@astryxdesign/core/AlertDialog'
 import { Card } from '@astryxdesign/core/Card'
 import { Text } from '@astryxdesign/core/Text'
 import { Icon } from '@astryxdesign/core/Icon'
 import { Button } from '@astryxdesign/core/Button'
-import { IconButton } from '@astryxdesign/core/IconButton'
+import { RowActionButton } from '~/components/common/RowActionButton'
 import { Badge } from '@astryxdesign/core/Badge'
 import { TextInput } from '@astryxdesign/core/TextInput'
-import { NumberInput } from '@astryxdesign/core/NumberInput'
 import { Selector } from '@astryxdesign/core'
-import { Switch } from '@astryxdesign/core/Switch'
 import { CheckboxInput } from '@astryxdesign/core/CheckboxInput'
 import { MoreMenu } from '@astryxdesign/core/MoreMenu'
-import { Banner } from '@astryxdesign/core/Banner'
-import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog'
-import { Layout, LayoutContent, LayoutFooter } from '@astryxdesign/core/Layout'
 import { Spinner } from '@astryxdesign/core/Spinner'
 import { EmptyState } from '@astryxdesign/core/EmptyState'
-import { Table, proportional, pixel, type TableColumn } from '@astryxdesign/core/Table'
+import { Table, proportional, pixel, useTablePagination, type TableColumn } from '@astryxdesign/core/Table'
 import { HStack, VStack, StackItem } from '@astryxdesign/core/Stack'
 import { Center } from '@astryxdesign/core/Center'
 import {
@@ -28,16 +23,17 @@ import {
   LinkIcon,
   PlayIcon,
   PlusIcon,
-  PencilIcon,
   SparklesIcon,
-  TrashIcon,
 } from '@heroicons/react/24/outline'
 import { adminAPI } from '~/lib/api/admin'
 import type { Account, AccountListItem, AccountPlatform, AccountType } from '@/types'
-import { supportsAccountQuota } from '@/utils/accountQuota'
+import { listPlatformIds, platformDisplayName } from '@/constants/platformCatalog'
+import { hasLocalQuota } from './accounts/usageRules'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { Page } from '~/components/common/Page'
-import { useI18n } from '~/i18n'
+import { getVersion, useI18n } from '~/i18n'
+import { Tooltip } from '@astryxdesign/core/Tooltip'
+import { ColumnPicker, useHiddenColumns } from '~/components/usage/ColumnPicker'
 import { toast } from '~/lib/toast'
 import { formatDateTime } from '@/utils/format'
 // Toolbar "More actions" menu: data import/export, CRS sync and gateway tools
@@ -51,6 +47,10 @@ import {
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline'
 import { SyncFromCrsDialog } from './accounts/SyncFromCrsDialog'
+import { AccountUsageCell } from './accounts/AccountUsageCell'
+import { AccountCapacity, AccountTodayStats } from './accounts/AccountUsageColumns'
+import { AccountUsageStore, type AccountListRevision } from './accounts/useAccountUsageRow'
+import type { UpdateAccount } from './accounts/ProviderQuotaCells'
 import { ImportDataDialog } from './accounts/ImportDataDialog'
 import { ExportDataDialog } from './accounts/ExportDataDialog'
 import { ErrorPassthroughRulesDialog } from './accounts/ErrorPassthroughRulesDialog'
@@ -63,7 +63,9 @@ import { TempUnschedulableStatusDialog } from './accounts/TempUnschedulableStatu
 import { ReauthAccountDialog } from './accounts/ReauthAccountDialog'
 import type { BulkEditTarget } from './accounts/bulkEditPayload'
 
-const PLATFORMS = ['anthropic', 'openai', 'gemini', 'grok', 'antigravity'] as const
+import { AccountFormDialog } from './accounts/AccountFormDialog'
+import { fetchAllAccountIds } from '@/utils/accountSelection'
+import type { AdminGroup } from '@/types'
 /** Account types that can be duplicated (AccountActionMenu.vue canDuplicate). */
 const DUPLICABLE_TYPES = ['apikey', 'upstream', 'bedrock', 'service_account']
 
@@ -83,12 +85,8 @@ const isRateLimited = (account: AccountListItem) => {
 const hasRecoverableState = (account: AccountListItem) =>
   account.status === 'error' || isRateLimited(account) || isFuture(account.overload_until) || isTempUnschedulable(account)
 
-const hasQuotaLimit = (account: AccountListItem) =>
-  supportsAccountQuota(account.type) &&
-  ((account.quota_limit ?? 0) > 0 || (account.quota_daily_limit ?? 0) > 0 || (account.quota_weekly_limit ?? 0) > 0)
-
-const STATUSES = ['active', 'inactive', 'error', 'rate_limited'] as const
-const TYPES = ['oauth', 'apikey', 'setup-token'] as const
+const STATUSES = ['active', 'inactive', 'error', 'rate_limited', 'temp_unschedulable', 'unschedulable'] as const
+const TYPES = ['oauth', 'apikey', 'setup-token', 'bedrock', 'service_account', 'upstream'] as const
 
 // Catalog key for each account status value
 const STATUS_KEYS: Record<string, string> = {
@@ -96,6 +94,8 @@ const STATUS_KEYS: Record<string, string> = {
   inactive: 'admin.accounts.status.inactive',
   error: 'admin.accounts.status.error',
   rate_limited: 'admin.accounts.status.rateLimited',
+  temp_unschedulable: 'admin.accounts.status.tempUnschedulable',
+  unschedulable: 'admin.accounts.status.unschedulable',
 }
 
 // Catalog key for each account type value; the backend writes apikey, older data api_key
@@ -105,239 +105,11 @@ const TYPE_KEYS: Record<string, string> = {
   api_key: 'admin.accounts.apiKey',
   'setup-token': 'admin.accounts.setupToken',
   upstream: 'admin.accounts.types.upstream',
+  bedrock: 'admin.accounts.bedrockLabel',
+  service_account: 'admin.accounts.vertexLabel',
 }
 
-interface AccountRow extends Record<string, unknown> {
-  __id: string
-  id: number
-  name: string
-  platform: string
-  type: string
-  status: string
-  schedulable: boolean
-  created_at: string
-  extra?: Record<string, any>
-}
-
-interface AccountForm {
-  name: string
-  notes: string
-  platform: string
-  base_url: string
-  api_key: string
-  priority: number
-  concurrency: number
-  status: 'active' | 'inactive'
-  schedulable: boolean
-}
-
-const EMPTY_FORM: AccountForm = {
-  name: '',
-  notes: '',
-  platform: 'anthropic',
-  base_url: '',
-  api_key: '',
-  priority: 1,
-  concurrency: 3,
-  status: 'active',
-  schedulable: true,
-}
-
-interface AccountFormDialogProps {
-  isOpen: boolean
-  editing: AccountListItem | null
-  onClose: () => void
-  onSaved: () => void
-}
-
-/**
- * Create (Base URL + API Key accounts) or edit an account's common fields.
- * OAuth and setup-token accounts need an authorization flow that is not part
- * of this dialog; the create form says so.
- */
-function AccountFormDialog({ isOpen, editing, onClose, onSaved }: AccountFormDialogProps) {
-  const { t } = useI18n()
-  const [form, setForm] = useState<AccountForm>(EMPTY_FORM)
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    if (!isOpen) return
-    setForm(
-      editing
-        ? {
-            ...EMPTY_FORM,
-            name: editing.name,
-            notes: editing.notes ?? '',
-            platform: editing.platform,
-            priority: editing.priority ?? EMPTY_FORM.priority,
-            concurrency: editing.concurrency ?? EMPTY_FORM.concurrency,
-            status: editing.status === 'inactive' ? 'inactive' : 'active',
-            schedulable: editing.schedulable,
-          }
-        : EMPTY_FORM,
-    )
-  }, [isOpen, editing])
-
-  const patch = (next: Partial<AccountForm>) => setForm((prev) => ({ ...prev, ...next }))
-
-  const handleSave = async () => {
-    if (!form.name.trim()) {
-      toast.error(t('admin.accounts.pleaseEnterAccountName'))
-      return
-    }
-    if (!editing && !form.api_key.trim()) {
-      toast.error(t('admin.accounts.vertexApiKeyRequired'))
-      return
-    }
-    setSaving(true)
-    try {
-      if (editing) {
-        await adminAPI.accounts.update(editing.id, {
-          name: form.name.trim(),
-          notes: form.notes.trim() || null,
-          priority: form.priority,
-          concurrency: form.concurrency,
-          status: form.status,
-          schedulable: form.schedulable,
-        })
-        toast.success(t('admin.accounts.accountUpdated'))
-      } else {
-        await adminAPI.accounts.create({
-          name: form.name.trim(),
-          notes: form.notes.trim() || null,
-          platform: form.platform as AccountPlatform,
-          type: 'apikey',
-          credentials: {
-            api_key: form.api_key.trim(),
-            ...(form.base_url.trim() ? { base_url: form.base_url.trim() } : {}),
-          },
-          priority: form.priority,
-          concurrency: form.concurrency,
-        })
-        toast.success(t('admin.accounts.accountCreated'))
-      }
-      onSaved()
-      onClose()
-    } catch (error) {
-      console.error('Failed to save account:', error)
-      toast.error(error instanceof Error && error.message ? error.message : t('common.saveFailed'))
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const platformOptions = PLATFORMS.map((p) => ({ value: p, label: t(`admin.accounts.platforms.${p}`) }))
-
-  return (
-    <Dialog isOpen={isOpen} onOpenChange={(open) => !open && onClose()} width={560} purpose="form">
-      <Layout
-        header={
-          <DialogHeader
-            title={editing ? t('admin.accounts.editAccount') : t('admin.accounts.createAccount')}
-            onOpenChange={(open) => !open && onClose()}
-          />
-        }
-        content={
-          <LayoutContent>
-            <VStack gap={4} hAlign="stretch">
-              {!editing && <Banner status="info" title={t('admin.accounts.types.upstreamDesc')} description={t('astryx.accountCreateApiKeyOnly')} />}
-              <TextInput
-                label={t('admin.accounts.accountName')}
-                placeholder={t('admin.accounts.enterAccountName')}
-                value={form.name}
-                onChange={(name) => patch({ name })}
-                isRequired
-              />
-              {editing ? (
-                <HStack gap={2} vAlign="center">
-                  <Badge label={t(`admin.accounts.platforms.${editing.platform}`)} variant="info" />
-                  <Badge label={TYPE_KEYS[editing.type] ? t(TYPE_KEYS[editing.type]) : editing.type} variant="neutral" />
-                </HStack>
-              ) : (
-                <>
-                  <Selector
-                    label={t('admin.accounts.platform')}
-                    value={form.platform}
-                    onChange={(platform) => patch({ platform: platform || EMPTY_FORM.platform })}
-                    options={platformOptions}
-                  />
-                  <TextInput
-                    label={t('admin.accounts.baseUrl')}
-                    description={form.platform === 'anthropic' ? t('admin.accounts.baseUrlHint') : undefined}
-                    placeholder="https://"
-                    value={form.base_url}
-                    onChange={(base_url) => patch({ base_url })}
-                  />
-                  <TextInput
-                    label={t('admin.accounts.apiKey')}
-                    type="password"
-                    value={form.api_key}
-                    onChange={(api_key) => patch({ api_key })}
-                    isRequired
-                  />
-                </>
-              )}
-              <HStack gap={3}>
-                <StackItem size="fill">
-                  <NumberInput
-                    label={t('admin.accounts.priority')}
-                    description={t('admin.accounts.priorityHint')}
-                    value={form.priority}
-                    onChange={(priority) => patch({ priority })}
-                    min={0}
-                    isIntegerOnly
-                  />
-                </StackItem>
-                <StackItem size="fill">
-                  <NumberInput
-                    label={t('admin.accounts.concurrency')}
-                    value={form.concurrency}
-                    onChange={(concurrency) => patch({ concurrency })}
-                    min={0}
-                    isIntegerOnly
-                  />
-                </StackItem>
-              </HStack>
-              <TextInput label={t('admin.accounts.notes')} value={form.notes} onChange={(notes) => patch({ notes })} />
-              {editing && (
-                <>
-                  <Selector
-                    label={t('admin.accounts.columns.status')}
-                    value={form.status}
-                    onChange={(status) => patch({ status: status === 'inactive' ? 'inactive' : 'active' })}
-                    options={[
-                      { value: 'active', label: t('admin.accounts.status.active') },
-                      { value: 'inactive', label: t('admin.accounts.status.inactive') },
-                    ]}
-                  />
-                  <Switch
-                    label={t('admin.accounts.schedulable')}
-                    description={t('admin.accounts.schedulableHint')}
-                    value={form.schedulable}
-                    onChange={(schedulable) => patch({ schedulable })}
-                  />
-                </>
-              )}
-            </VStack>
-          </LayoutContent>
-        }
-        footer={
-          <LayoutFooter>
-            <HStack gap={3} hAlign="end">
-              <Button label={t('common.cancel')} variant="secondary" onClick={onClose} />
-              <Button
-                label={saving ? t('common.saving') : t('common.save')}
-                variant="primary"
-                isLoading={saving}
-                onClick={handleSave}
-              />
-            </HStack>
-          </LayoutFooter>
-        }
-      />
-    </Dialog>
-  )
-}
+type AccountRow = AccountListItem & { __id: string; [key: string]: unknown }
 
 export function AdminAccountsPage() {
   const { t } = useI18n()
@@ -347,9 +119,23 @@ export function AdminAccountsPage() {
   const [platformFilter, setPlatformFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
+  const [groupFilter, setGroupFilter] = useState('')
+  const [privacyFilter, setPrivacyFilter] = useState('')
+  const [groups, setGroups] = useState<AdminGroup[]>([])
+  const filters = useMemo(() => ({ platform: platformFilter, type: typeFilter, status: statusFilter,
+    group: groupFilter, privacy_mode: privacyFilter, search: searchQuery }),
+    [platformFilter, typeFilter, statusFilter, groupFilter, privacyFilter, searchQuery])
+  const selecting = useRef<AbortController | null>(null)
+  const [selectingAll, setSelectingAll] = useState(false)
+  const selectionMetadata = useRef(new Map<number, Pick<Account, 'type' | 'platform'>>())
+  const [batchAction, setBatchAction] = useState<'refreshToken' | 'resetStatus' | 'probeUpstreamBilling' | null>(null)
+  const [refreshSeconds, setRefreshSeconds] = useState(() => {
+    const seconds = Number(localStorage.getItem('astryx-account-refresh-seconds'))
+    return [5, 10, 15, 30].includes(seconds) ? seconds : 0
+  })
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editing, setEditing] = useState<AccountListItem | null>(null)
+  const [editing, setEditing] = useState<Account | null>(null)
   const [bulkBusy, setBulkBusy] = useState(false)
   // Toolbar tool dialogs (CRS sync, data import/export, error passthrough, TLS profiles)
   const [showSync, setShowSync] = useState(false)
@@ -377,55 +163,68 @@ export function AdminAccountsPage() {
 
   // Pagination state
   const [page, setPage] = useState(1)
-  const [pageSize] = useState(20)
+  const [pageSize, setPageSize] = useState(20)
+  const [total, setTotal] = useState(0)
+  const pagination = useTablePagination<AccountRow>({ page, pageSize, totalItems: total, onPageChange: setPage,
+    onPageSizeChange: size => { setPageSize(size); setPage(1) }, pageSizeOptions: [10, 20, 50, 100] })
+  const [usageStore] = useState(() => new AccountUsageStore())
+  const [lastProbe] = useState(() => new Map<number, number>())
+  const [revision, setRevision] = useState<AccountListRevision>({ version: 0, force: false })
+  const [hiddenColumns, setHiddenColumns] = useHiddenColumns('account-hidden-columns', ['today_stats', 'proxy', 'notes', 'scheduler_score', 'rate_multiplier'])
+  const catalogVersion = getVersion()
+  const listRequest = useRef<AbortController | null>(null)
+  const updateAccount = useCallback<UpdateAccount>((id, patch) => {
+    setAccounts(current => current.map(account => account.id === id ? { ...account, ...patch,
+      extra: patch.extra ? { ...account.extra, ...patch.extra } : account.extra } : account))
+  }, [])
 
   // Load accounts
-  const loadAccounts = useCallback(async () => {
+  const loadAccounts = useCallback(async (force = false) => {
+    listRequest.current?.abort()
+    const request = new AbortController()
+    listRequest.current = request
     setLoading(true)
     try {
       const response = await adminAPI.accounts.list(page, pageSize, {
-        platform: platformFilter,
-        status: statusFilter,
-        type: typeFilter,
-        search: searchQuery,
-        lite: '1',
-      })
-
-      setAccounts(response.items || [])
+        ...filters, lite: '1',
+      }, { signal: request.signal })
+      if (request.signal.aborted) return
+      setAccounts(response.items ?? [])
+      setTotal(response.total ?? 0)
+      setRevision(current => ({ version: current.version + 1, force }))
     } catch (error) {
-      console.error('Failed to load accounts:', error)
-      toast.error(t('admin.accounts.failedToLoad'))
+      if (!request.signal.aborted) toast.error(extractApiErrorMessage(error, t('admin.accounts.failedToLoad')))
     } finally {
-      setLoading(false)
+      if (!request.signal.aborted) setLoading(false)
     }
-  }, [page, pageSize, platformFilter, statusFilter, typeFilter, searchQuery, t])
+  }, [page, pageSize, filters, t])
 
-  // Load on mount and when filters change
   useEffect(() => {
-    loadAccounts()
+    void loadAccounts()
+    return () => listRequest.current?.abort()
   }, [loadAccounts])
 
   const platformLabel = useCallback(
     (platform: string) => {
       const key = `admin.accounts.platforms.${platform}`
       const label = t(key)
-      return label === key ? platform : label
+      return label === key ? platformDisplayName(platform) : label
     },
     [t],
   )
   const typeLabel = useCallback((type: string) => (TYPE_KEYS[type] ? t(TYPE_KEYS[type]) : type), [t])
 
   const platformOptions = useMemo(
-    () => [{ value: '', label: t('admin.accounts.allPlatforms') }, ...PLATFORMS.map((p) => ({ value: p, label: platformLabel(p) }))],
-    [t, platformLabel],
+    () => [{ value: '', label: t('admin.accounts.allPlatforms') }, ...listPlatformIds().map((p) => ({ value: p, label: platformLabel(p) }))],
+    [t, platformLabel, catalogVersion],
   )
   const statusOptions = useMemo(
     () => [{ value: '', label: t('admin.accounts.allStatus') }, ...STATUSES.map((s) => ({ value: s, label: t(STATUS_KEYS[s]) }))],
-    [t],
+    [t, catalogVersion],
   )
   const typeOptions = useMemo(
     () => [{ value: '', label: t('admin.accounts.allTypes') }, ...TYPES.map((v) => ({ value: v, label: typeLabel(v) }))],
-    [t, typeLabel],
+    [t, typeLabel, catalogVersion],
   )
 
   // Handle search with debounce
@@ -452,7 +251,7 @@ export function AdminAccountsPage() {
 
   // Handle refresh
   const handleRefresh = useCallback(() => {
-    loadAccounts()
+    void loadAccounts(true)
   }, [loadAccounts])
 
   const handleDataImported = useCallback(() => {
@@ -460,11 +259,6 @@ export function AdminAccountsPage() {
     loadAccounts()
   }, [loadAccounts])
 
-  // Export uses the selection when present, otherwise the current list filters
-  const exportFilters = useMemo(
-    () => ({ platform: platformFilter, type: typeFilter, status: statusFilter, search: searchQuery }),
-    [platformFilter, typeFilter, statusFilter, searchQuery],
-  )
   const selectedIdList = useMemo(() => [...selectedIds], [selectedIds])
 
   const toolsMenuItems = useMemo(
@@ -497,13 +291,10 @@ export function AdminAccountsPage() {
     [t, selectedIds.size],
   )
 
+  const editRequest = useRef(0)
   const openCreate = useCallback(() => {
+    ++editRequest.current
     setEditing(null)
-    setDialogOpen(true)
-  }, [])
-
-  const openEdit = useCallback((account: AccountListItem) => {
-    setEditing(account)
     setDialogOpen(true)
   }, [])
 
@@ -541,6 +332,15 @@ export function AdminAccountsPage() {
     },
     [t],
   )
+
+  const openEdit = useCallback(async (row: AccountListItem) => {
+    const request = ++editRequest.current
+    const detail = await loadAccountDetails(row)
+    if (detail && request === editRequest.current) {
+      setEditing(detail)
+      setDialogOpen(true)
+    }
+  }, [loadAccountDetails])
 
   const handleTest = useCallback(
     async (account: AccountListItem) => {
@@ -654,33 +454,14 @@ export function AdminAccountsPage() {
   }, [shadowAccount, t, loadAccounts])
 
   const openBulkEditSelected = useCallback(() => {
-    const selected = accounts.filter((account) => selectedIds.has(account.id))
+    const selected = [...selectedIds].flatMap(id => selectionMetadata.current.get(id) ?? [])
     setBulkEditTarget({
       mode: 'selected',
-      accountIds: selected.map((account) => account.id),
+      accountIds: [...selectedIds],
       selectedPlatforms: [...new Set(selected.map((account) => account.platform))] as AccountPlatform[],
       selectedTypes: [...new Set(selected.map((account) => account.type))] as AccountType[],
     })
-  }, [accounts, selectedIds])
-
-  /**
-   * Filter snapshot sent as the bulk-update `filters` object, matching the
-   * backend BulkUpdateAccountFilters fields and Vue
-   * buildBulkEditFilterSnapshot (AccountsView.vue:2074). `group` and
-   * `privacy_mode` are always empty because this page has no filter for them
-   * yet; the backend treats an empty string as "no constraint".
-   */
-  const bulkEditFilters = useMemo(
-    () => ({
-      platform: platformFilter,
-      type: typeFilter,
-      status: statusFilter,
-      group: '',
-      search: searchQuery,
-      privacy_mode: '',
-    }),
-    [platformFilter, typeFilter, statusFilter, searchQuery],
-  )
+  }, [selectedIds])
 
   /**
    * Bulk edit every account matching the current filters, not just the page's
@@ -692,11 +473,11 @@ export function AdminAccountsPage() {
     if (bulkEditPreviewing) return
     setBulkEditPreviewing(true)
     try {
-      const preview = await adminAPI.accounts.list(1, 100, bulkEditFilters)
+      const preview = await adminAPI.accounts.list(1, 100, filters)
       const items = preview.items ?? []
       setBulkEditTarget({
         mode: 'filtered',
-        filters: bulkEditFilters,
+        filters,
         previewCount: preview.total,
         selectedPlatforms: [...new Set(items.map((account) => account.platform))] as AccountPlatform[],
         selectedTypes: [...new Set(items.map((account) => account.type))] as AccountType[],
@@ -707,7 +488,7 @@ export function AdminAccountsPage() {
     } finally {
       setBulkEditPreviewing(false)
     }
-  }, [bulkEditPreviewing, bulkEditFilters, t])
+  }, [bulkEditPreviewing, filters, t])
 
   const handleBulkUpdated = useCallback(() => {
     setBulkEditTarget(null)
@@ -884,7 +665,7 @@ export function AdminAccountsPage() {
           onClick: () => void handleRecoverState(account),
         })
       }
-      if (hasQuotaLimit(account)) {
+      if (hasLocalQuota(account)) {
         items.push({
           label: t('admin.accounts.resetQuota'),
           icon: ArrowPathIcon,
@@ -908,26 +689,99 @@ export function AdminAccountsPage() {
     ],
   )
 
-  // Handle row selection
+  useEffect(() => {
+    let active = true
+    adminAPI.groups.getAll().then(items => { if (active) setGroups(items) })
+      .catch(err => { if (active) toast.error(extractApiErrorMessage(err, t('common.error'))) })
+    return () => { active = false }
+  }, [t])
+
+  useEffect(() => {
+    selectionMetadata.current.clear()
+    setSelectedIds(new Set())
+    setSelectingAll(false)
+    return () => selecting.current?.abort()
+  }, [filters])
+
+  const paused = loading || bulkBusy || selectingAll || dialogOpen || !!(bulkEditTarget || testAccount || statsAccount ||
+    reauthAccount || scheduleAccountId || tempUnschedAccount || deletingAccount || shadowAccount || confirmBulkDelete ||
+    batchAction || showSync || showImportData || showExportData || showErrorPassthrough || showTlsFingerprintProfiles)
+  useEffect(() => {
+    if (!refreshSeconds || paused) return
+    const timer = window.setInterval(() => { if (!document.hidden) void loadAccounts() }, refreshSeconds * 1000)
+    return () => window.clearInterval(timer)
+  }, [loadAccounts, refreshSeconds, paused])
+
+  const selectAllResults = async () => {
+    selecting.current?.abort()
+    const request = new AbortController()
+    selecting.current = request
+    setSelectingAll(true)
+    const metadata = new Map<number, Pick<Account, 'type' | 'platform'>>()
+    try {
+      const ids = await fetchAllAccountIds(async (page, size, params) => {
+        const result = await adminAPI.accounts.list(page, size, params, { signal: request.signal })
+        for (const { id, platform, type } of result.items) metadata.set(id, { platform, type })
+        return result
+      }, filters)
+      if (request.signal.aborted) return
+      selectionMetadata.current = metadata
+      setSelectedIds(new Set(ids))
+    } catch {
+      if (!request.signal.aborted) toast.error(t('admin.accounts.bulkActions.selectAllFailed'))
+    } finally {
+      if (!request.signal.aborted) setSelectingAll(false)
+    }
+  }
+
+  const runBatch = async () => {
+    if (!batchAction || bulkBusy) return
+    const ids = [...selectedIds]
+    setBulkBusy(true)
+    try {
+      if (batchAction === 'probeUpstreamBilling') {
+        if (ids.length > 20) { toast.error(t('admin.accounts.upstreamBilling.batchLimit')); return }
+        const results = await adminAPI.accounts.probeUpstreamBillingBatch(ids)
+        const failed = results.filter(row => row.error).map(row => row.account_id)
+        if (failed.length) {
+          toast.error(t('admin.accounts.upstreamBilling.batchPartial', { success: results.length - failed.length, failed: failed.length }))
+          setSelectedIds(new Set(failed))
+        } else toast.success(t('admin.accounts.upstreamBilling.batchCompleted', { count: results.length }))
+      } else {
+        const result = batchAction === 'refreshToken' ? await adminAPI.accounts.batchRefresh(ids) : await adminAPI.accounts.batchClearError(ids)
+        if (result.failed) {
+          const failed = result.failed_ids ?? result.errors?.map(item => item.account_id)
+          setSelectedIds(new Set(failed?.length ? failed : ids))
+          toast.error(t('admin.accounts.bulkActions.partialSuccess', { success: result.success, failed: result.failed }))
+        } else {
+          setSelectedIds(new Set())
+          toast.success(t(`admin.accounts.bulkActions.${batchAction}Success`, { count: result.success }))
+        }
+        for (const warning of result.warnings ?? []) toast.warning(`#${warning.account_id} · ${warning.warning}`)
+      }
+      void loadAccounts()
+    } catch (err) { toast.error(extractApiErrorMessage(err, t('common.error'))) }
+    finally { setBulkBusy(false); setBatchAction(null) }
+  }
+
   const handleRowSelect = useCallback((id: number, selected: boolean) => {
+    const row = accounts.find(item => item.id === id)
+    if (selected && row) selectionMetadata.current.set(id, { platform: row.platform, type: row.type })
     setSelectedIds(prev => {
       const next = new Set(prev)
-      if (selected) {
-        next.add(id)
-      } else {
-        next.delete(id)
-      }
+      if (selected) next.add(id)
+      else next.delete(id)
       return next
     })
-  }, [])
+  }, [accounts])
 
-  // Handle select all
-  const handleSelectAll = useCallback((selected: boolean) => {
-    if (selected) {
-      setSelectedIds(new Set(accounts.map(a => a.id)))
-    } else {
-      setSelectedIds(new Set())
-    }
+  const handleSelectAll = useCallback((checked: boolean) => {
+    for (const { id, platform, type } of accounts) selectionMetadata.current.set(id, { platform, type })
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      for (const row of accounts) { if (checked) next.add(row.id); else next.delete(row.id) }
+      return next
+    })
   }, [accounts])
 
   // Convert accounts to table rows
@@ -950,13 +804,15 @@ export function AdminAccountsPage() {
         <CheckboxInput
           label={t('admin.accounts.bulkActions.selectCurrentPage')}
           isLabelHidden
-          value={selectedIds.size === accounts.length && accounts.length > 0}
+          isDisabled={selectingAll || bulkBusy}
+          value={accounts.length > 0 && accounts.every(account => selectedIds.has(account.id))}
           onChange={(checked) => handleSelectAll(checked)}
         />
       ),
       renderCell: (row: AccountRow) => (
         <CheckboxInput
           label={row.name}
+          isDisabled={selectingAll || bulkBusy}
           isLabelHidden
           value={selectedIds.has(row.id)}
           onChange={(checked) => handleRowSelect(row.id, checked)}
@@ -976,7 +832,7 @@ export function AdminAccountsPage() {
       renderCell: (row: AccountRow) => (
         <VStack gap={1}>
           <Text weight="medium">{row.name}</Text>
-          {row.extra?.email && (
+          {typeof row.extra?.email === 'string' && row.extra.email && (
             <Text color="secondary">{row.extra.email}</Text>
           )}
         </VStack>
@@ -1036,6 +892,19 @@ export function AdminAccountsPage() {
       width: pixel(100),
     },
     {
+      key: 'capacity', header: t('admin.accounts.columns.capacity'),
+      renderCell: (row: AccountRow) => <AccountCapacity account={row} />, width: proportional(1.5),
+    },
+    {
+      key: 'today_stats', header: t('admin.accounts.columns.todayStats'),
+      renderCell: (row: AccountRow) => <AccountTodayStats key={row.id} account={row} store={usageStore} revision={revision} />, width: proportional(1.5),
+    },
+    {
+      key: 'usage', header: <Tooltip content={t('admin.accounts.usageWindowsHint')}><Text>{t('admin.accounts.columns.usageWindows')}</Text></Tooltip>,
+      renderCell: (row: AccountRow) => <AccountUsageCell key={`${row.id}-${row.platform}-${row.type}`} account={row} store={usageStore}
+        revision={revision} update={updateAccount} lastProbe={lastProbe} />, width: proportional(2, { minWidth: 200 }),
+    },
+    {
       key: 'created_at',
       header: t('admin.accounts.columns.createdAt'),
       renderCell: (row: AccountRow) => (
@@ -1053,31 +922,30 @@ export function AdminAccountsPage() {
         if (!account) return null
         return (
           <HStack gap={1}>
-            <IconButton
-              icon={<Icon icon={PencilIcon} />}
-              label={t('common.edit')}
-              variant="ghost"
-              onClick={() => openEdit(account)}
-            />
-            <IconButton
-              icon={<Icon icon={TrashIcon} />}
-              label={t('common.delete')}
-              variant="ghost"
-              onClick={() => void handleDelete(account)}
-            />
+            <RowActionButton action="edit" onClick={() => openEdit(account)} />
+            <RowActionButton action="delete" onClick={() => void handleDelete(account)} />
             <MoreMenu label={t('admin.accounts.moreActions')} alignment="end" items={rowMenuItems(account)} />
           </HStack>
         )
       },
       width: pixel(140),
     },
-  ], [t, accounts, accountById, selectedIds, handleSelectAll, handleRowSelect, platformLabel, typeLabel, openEdit, handleDelete, rowMenuItems])
+  ], [selectingAll, bulkBusy, t, accounts, accountById, selectedIds, handleSelectAll, handleRowSelect, platformLabel, typeLabel, openEdit, handleDelete, rowMenuItems, usageStore, revision, updateAccount, lastProbe, catalogVersion])
+
+  const columnChoices = [
+    { key: 'capacity', label: t('admin.accounts.columns.capacity') },
+    { key: 'today_stats', label: t('admin.accounts.columns.todayStats') },
+    { key: 'usage', label: t('admin.accounts.columns.usageWindows') },
+  ]
+  const optionalColumns = columnChoices.map(column => column.key)
 
   return (
     <Page title={t('admin.accounts.title')} description={t('admin.accounts.description')}>
       <VStack gap={6} hAlign="stretch">
         {/* Header Actions */}
-        <HStack gap={2} vAlign="center" hAlign="end">
+        <HStack gap={2} vAlign="center" hAlign="end" wrap="wrap">
+          <ColumnPicker columns={columnChoices} hidden={hiddenColumns}
+            onChange={next => setHiddenColumns([...hiddenColumns.filter(key => !optionalColumns.includes(key)), ...next])} />
           <Button
             label={t('common.refresh')}
             icon={<Icon icon={ArrowPathIcon} />}
@@ -1085,6 +953,9 @@ export function AdminAccountsPage() {
             onClick={handleRefresh}
             isDisabled={loading}
           />
+          <Selector label={t('admin.accounts.autoRefresh')} value={String(refreshSeconds)}
+            options={[{ value: '0', label: t('common.disabled') }, ...[5, 10, 15, 30].map(n => ({ value: String(n), label: t(`admin.accounts.refreshInterval${n}s`) }))]}
+            onChange={value => { localStorage.setItem('astryx-account-refresh-seconds', value); setRefreshSeconds(Number(value)) }} />
           <DropdownMenu
             button={{ label: t('admin.accounts.moreActions'), icon: <Icon icon={EllipsisHorizontalIcon} />, variant: 'secondary' }}
             alignment="end"
@@ -1110,7 +981,7 @@ export function AdminAccountsPage() {
             />
 
             {/* Filter Row */}
-            <HStack gap={3}>
+            <HStack gap={3} wrap="wrap">
               <StackItem size="fill">
                 <Selector
                   label={t('admin.accounts.columns.platform')}
@@ -1135,6 +1006,15 @@ export function AdminAccountsPage() {
                   options={typeOptions}
                 />
               </StackItem>
+              <Selector label={t('admin.accounts.allGroups')} value={groupFilter}
+                onChange={value => { setGroupFilter(value); setPage(1) }} options={[
+                  { value: '', label: t('admin.accounts.allGroups') }, { value: 'ungrouped', label: t('admin.accounts.ungroupedGroup') },
+                  ...groups.map(group => ({ value: String(group.id), label: group.name }))]} />
+              <Selector label={t('admin.accounts.allPrivacyModes')} value={privacyFilter}
+                onChange={value => { setPrivacyFilter(value); setPage(1) }} options={[
+                  { value: '', label: t('admin.accounts.allPrivacyModes') }, { value: '__unset__', label: t('admin.accounts.privacyUnset') },
+                  { value: 'training_off', label: 'Privacy' }, { value: 'training_set_cf_blocked', label: 'CF' },
+                  { value: 'training_set_failed', label: t('admin.accounts.privacyFailed') }]} />
             </HStack>
           </VStack>
         </Card>
@@ -1153,30 +1033,36 @@ export function AdminAccountsPage() {
                 : t('admin.accounts.bulkEdit.title')}
             </Text>
             <HStack gap={2} wrap="wrap">
+              <Button label={t('admin.accounts.bulkActions.selectAllResults', { count: total })}
+                isDisabled={!total || bulkBusy || loading || selectingAll} isLoading={selectingAll} onClick={() => void selectAllResults()} />
               {selectedIds.size > 0 && (
                 <>
+                  {(['resetStatus', 'refreshToken', 'probeUpstreamBilling'] as const).map(action => (
+                    <Button key={action} label={t(`admin.accounts.bulkActions.${action}`)}
+                      isDisabled={bulkBusy || selectingAll} onClick={() => setBatchAction(action)} />
+                  ))}
                   <Button
                     label={t('admin.accounts.bulkActions.enableScheduling')}
                     variant="secondary"
-                    isDisabled={bulkBusy}
+                    isDisabled={bulkBusy || selectingAll}
                     onClick={() => void handleBulkSchedulable(true)}
                   />
                   <Button
                     label={t('admin.accounts.bulkActions.disableScheduling')}
                     variant="secondary"
-                    isDisabled={bulkBusy}
+                    isDisabled={bulkBusy || selectingAll}
                     onClick={() => void handleBulkSchedulable(false)}
                   />
                   <Button
                     label={t('admin.accounts.bulkActions.edit')}
                     variant="secondary"
-                    isDisabled={bulkBusy}
+                    isDisabled={bulkBusy || selectingAll}
                     onClick={openBulkEditSelected}
                   />
                   <Button
                     label={t('admin.accounts.bulkActions.delete')}
                     variant="secondary"
-                    isDisabled={bulkBusy}
+                    isDisabled={bulkBusy || selectingAll}
                     onClick={() => setConfirmBulkDelete(true)}
                   />
                   <Button
@@ -1190,7 +1076,7 @@ export function AdminAccountsPage() {
                 label={t('admin.accounts.bulkEdit.submit')}
                 variant="primary"
                 isLoading={bulkEditPreviewing}
-                isDisabled={bulkBusy}
+                isDisabled={bulkBusy || selectingAll}
                 onClick={() => void openBulkEditFiltered()}
               />
             </HStack>
@@ -1213,19 +1099,24 @@ export function AdminAccountsPage() {
           ) : (
             <Table
               data={rows}
-              columns={columns}
+              columns={columns.filter(column => !optionalColumns.includes(column.key) || !hiddenColumns.includes(column.key))}
+              plugins={{ pagination }}
               idKey="__id"
             />
           )}
         </Card>
       </VStack>
 
-      <AccountFormDialog
+      <AlertDialog isOpen={!!batchAction} onOpenChange={open => { if (!open && !bulkBusy) setBatchAction(null) }}
+        title={batchAction ? t(`admin.accounts.bulkActions.${batchAction}`) : ''}
+        description={t('admin.accounts.bulkActions.selected', { count: selectedIds.size })} actionLabel={t('common.confirm')}
+        cancelLabel={t('common.cancel')} isActionLoading={bulkBusy} onAction={() => void runBatch()} />
+      {dialogOpen && <AccountFormDialog groups={groups}
         isOpen={dialogOpen}
         editing={editing}
         onClose={() => setDialogOpen(false)}
         onSaved={loadAccounts}
-      />
+      />}
 
       {/* Bulk edit the current selection */}
       <BulkEditAccountsDialog
@@ -1246,7 +1137,7 @@ export function AdminAccountsPage() {
         isOpen={showExportData}
         onClose={() => setShowExportData(false)}
         selectedIds={selectedIdList}
-        filters={exportFilters}
+        filters={filters}
       />
 
       {/* Gateway tools */}
