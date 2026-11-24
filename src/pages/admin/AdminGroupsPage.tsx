@@ -36,6 +36,7 @@ import { toast } from '~/lib/toast'
 import { useAuthStore, selectIsSimpleMode } from '~/stores/auth'
 import { CompositeRoutesDialog } from './groups/CompositeRoutesDialog'
 import { GroupRateMultipliersDialog } from './groups/GroupRateMultipliersDialog'
+import { LoadingOverlay } from '~/components/common/LoadingOverlay'
 import { GroupRPMOverridesDialog } from './groups/GroupRPMOverridesDialog'
 import { GroupSortOrderDialog } from './groups/GroupSortOrderDialog'
 import {
@@ -469,7 +470,7 @@ export function AdminGroupsPage() {
             </Card>
 
             {/* Table */}
-            <Card padding={0}>
+            <Card padding={0} style={{ position: 'relative' }}>
               {loading && rows.length === 0 ? (
                 <VStack hAlign="center" minHeight={400} paddingBlockStart={10}>
                   <Spinner />
@@ -493,6 +494,7 @@ export function AdminGroupsPage() {
                   hasHover
                 />
               )}
+              <LoadingOverlay show={loading && rows.length > 0} label={t('common.loading')} />
             </Card>
           </VStack>
 

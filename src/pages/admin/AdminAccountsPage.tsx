@@ -37,6 +37,7 @@ import type { Account, AccountListItem, AccountPlatform, AccountType } from '@/t
 import { supportsAccountQuota } from '@/utils/accountQuota'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { Page } from '~/components/common/Page'
+import { LoadingOverlay } from '~/components/common/LoadingOverlay'
 import { useI18n } from '~/i18n'
 import { toast } from '~/lib/toast'
 import { formatDateTime } from '@/utils/format'
@@ -1237,7 +1238,7 @@ export function AdminAccountsPage() {
         </Card>
 
         {/* Table */}
-        <Card padding={0}>
+        <Card padding={0} style={{ position: 'relative' }}>
           {loading && accounts.length === 0 ? (
             <Center minHeight={400}>
               <Spinner />
@@ -1256,6 +1257,9 @@ export function AdminAccountsPage() {
               idKey="__id"
             />
           )}
+          {/* Refreshing or filtering keeps the rows on screen, so the busy state
+              has to be drawn over them. */}
+          <LoadingOverlay show={loading && accounts.length > 0} label={t('common.loading')} />
         </Card>
       </VStack>
 

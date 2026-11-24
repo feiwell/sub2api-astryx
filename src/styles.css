@@ -393,6 +393,51 @@ body {
   height: 100%;
 }
 
+/*
+ * Route progress: a thin bar that runs while a page is being brought in. Pages are prefetched, so
+ * it mostly reports "the click landed" rather than real waiting.
+ */
+.route-progress {
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline: 0;
+  z-index: 9999;
+  height: 2px;
+  pointer-events: none;
+  opacity: 0;
+  transform: scaleX(0.08);
+  transform-origin: left center;
+  background: linear-gradient(90deg, transparent, currentColor 40%, currentColor);
+  color: var(--astryx-color-accent-9, #3b82f6);
+}
+
+.route-progress[data-active] {
+  animation: route-progress-run 420ms ease-out forwards;
+}
+
+@keyframes route-progress-run {
+  0% {
+    opacity: 1;
+    transform: scaleX(0.08);
+  }
+  60% {
+    opacity: 1;
+    transform: scaleX(0.85);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-progress[data-active] {
+    animation: none;
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
 .page-stage[data-page-turn='a'] {
   view-transition-name: page-a;
 }

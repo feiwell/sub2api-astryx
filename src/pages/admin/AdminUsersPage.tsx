@@ -39,6 +39,7 @@ import { adminAPI } from '~/lib/api/admin'
 import type { AdminGroup, AdminUser, UserAttributeDefinition } from '@/types'
 import { formatDateTime } from '@/utils/format'
 import { Page } from '~/components/common/Page'
+import { LoadingOverlay } from '~/components/common/LoadingOverlay'
 import { useI18n } from '~/i18n'
 import { toast } from '~/lib/toast'
 import { UserCreateEditDialog } from './users/UserCreateEditDialog'
@@ -893,7 +894,7 @@ export function AdminUsersPage() {
             </Section>
 
             {/* Table */}
-            <Section padding={0}>
+            <Section padding={0} style={{ position: 'relative' }}>
               {loading && rows.length === 0 ? (
                 <Center axis="both" padding={8} minHeight={400}>
                   <Spinner />
@@ -914,6 +915,7 @@ export function AdminUsersPage() {
                   plugins={{pagination: paginationPlugin}}
                 />
               )}
+              <LoadingOverlay show={loading && rows.length > 0} label={t('common.loading')} />
             </Section>
           </VStack>
         </LayoutContent>

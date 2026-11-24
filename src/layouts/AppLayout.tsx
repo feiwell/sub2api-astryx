@@ -18,6 +18,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { useI18n } from '~/i18n'
 import { VersionBadge } from '~/components/VersionBadge'
+import { RouteProgress } from '~/components/common/RouteProgress'
 import { useAppStore } from '~/stores/app'
 import { useAuthStore, selectIsAdmin, selectIsSimpleMode } from '~/stores/auth'
 import { useBatchImageAccess } from '~/stores/batchImageAccess'
@@ -264,5 +265,8 @@ export function AppLayout({ children }: { children?: React.ReactNode } = {}) {
     </AppShell>
   )
 
-  return <PageTurnContext value={turnTo}>{shell}</PageTurnContext>
+  return <PageTurnContext value={turnTo}>
+    <RouteProgress />
+    {shell}
+  </PageTurnContext>
 }
