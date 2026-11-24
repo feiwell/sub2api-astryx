@@ -65,13 +65,36 @@ function warmLocale(): Plugin {
   }
 }
 
+/**
+ * The title in index.html is a placeholder so a deployment does not flash the
+ * upstream product name before the app renames the tab from its own settings.
+ * VITE_DEFAULT_SITE_NAME fills it in at build time.
+ */
+function siteNameTitle(siteName: string | undefined): Plugin {
+  return {
+    name: 'site-name-title',
+    transformIndexHtml: {
+      order: 'pre',
+      handler(html) {
+        return html.replaceAll('%VITE_DEFAULT_SITE_NAME%', siteName || 'Sub2API')
+      },
+    },
+  }
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, import.meta.dirname, 'VITE_')
   const backendUrl = env.VITE_DEV_PROXY_TARGET || 'http://localhost:8080'
   const devPort = Number(env.VITE_DEV_PORT || 3100)
 
   return {
-    plugins: [react(), injectPublicSettings(backendUrl), warmLocale(), distributionNotices(import.meta.dirname)],
+    plugins: [
+      react(),
+      siteNameTitle(env.VITE_DEFAULT_SITE_NAME),
+      injectPublicSettings(backendUrl),
+      warmLocale(),
+      distributionNotices(import.meta.dirname),
+    ],
     resolve: { tsconfigPaths: true },
     server: {
       port: devPort,
