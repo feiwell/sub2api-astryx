@@ -25,6 +25,11 @@ const login = vi.fn<ReturnType<typeof useAuthStore.getState>['login']>()
 const formPassword = crypto.randomUUID()
 const signedIn: AuthResponse = { access_token: crypto.randomUUID(), token_type: 'Bearer', user: mockUser }
 const settings = { site_name: 'Sub2API', registration_enabled: true }
+// The store replaces the upstream default name with the name this build was
+// branded with (VITE_DEFAULT_SITE_NAME), so the expectation has to follow it:
+// a deployment that sets the variable would otherwise fail a test about
+// plumbing rather than branding.
+const expectedSiteName = import.meta.env.VITE_DEFAULT_SITE_NAME?.trim() || 'Sub2API'
 
 function renderLogin() {
   render(
@@ -113,7 +118,9 @@ describe('LoginPage', () => {
 
   it('applies the public settings returned on mount', async () => {
     renderLogin()
-    await waitFor(() => expect(useAppStore.getState().publicSettings).toEqual(settings))
+    await waitFor(() =>
+      expect(useAppStore.getState().publicSettings).toEqual({ ...settings, site_name: expectedSiteName }),
+    )
     expect(getPublicSettings).toHaveBeenCalledTimes(1)
   })
 
