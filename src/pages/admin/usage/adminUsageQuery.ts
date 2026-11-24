@@ -4,7 +4,7 @@ import type { OpsErrorListQueryParams } from '@/api/admin/ops'
 import type { AdminUsageQueryParams, CreateUsageCleanupTaskRequest } from '@/api/admin/usage'
 import type { UsageRequestType } from '@/types'
 import { requestTypeToLegacyStream } from '@/utils/usageRequestType'
-import { last24HoursRange, type Granularity, type UsageSort } from '~/pages/user/usage/usageQuery'
+import { type Granularity, type UsageSort } from '~/pages/user/usage/usageQuery'
 
 /** Something picked from a search box: the id that is sent and the name shown for it. */
 export interface PickedOption {
@@ -38,9 +38,16 @@ export interface AdminUsageFilters {
   statusCode: number | null
 }
 
+/** The day the admin usage page opens on: today only, in the browser's local calendar. */
+export function todayRange(now = new Date()): DateRange {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  const day = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` as ISODateString
+  return { start: day, end: day }
+}
+
 export function emptyAdminUsageFilters(now = new Date()): AdminUsageFilters {
   return {
-    range: last24HoursRange(now),
+    range: todayRange(now),
     user: null,
     apiKey: null,
     account: null,
@@ -71,9 +78,14 @@ export function filtersFromRoute(search: string, now = new Date()): AdminUsageFi
     return ISO_DAY.test(value) ? (value as ISODateString) : null
   }
   const userId = Number(query.get('user_id') || NaN)
+  // A link may carry only one end of the range. The page now opens on today, so an
+  // end_date in the past would leave start > end; clamp the start to the end.
+  const start = day('start_date') ?? filters.range.start
+  const end = day('end_date') ?? filters.range.end
+  const range: DateRange = start > end ? { start: end, end } : { start, end }
   return {
     ...filters,
-    range: { start: day('start_date') ?? filters.range.start, end: day('end_date') ?? filters.range.end },
+    range,
     user: Number.isFinite(userId) && userId > 0 ? { id: userId, label: String(userId) } : null,
   }
 }

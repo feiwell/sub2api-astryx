@@ -7,6 +7,11 @@ export default defineConfig({
   test: {
     globals: true,
     maxWorkers: 4,
+    // jsdom + heavy CSS parsing makes the DOM-heavy page tests (KeysPage, AdminSettingsPage)
+    // take 3-5s each. With four workers on a busy machine the 5s default times them out even
+    // though they pass in isolation, so allow more headroom.
+    testTimeout: 20000,
+    hookTimeout: 20000,
     environment: 'jsdom',
     environmentOptions: { jsdom: { url: 'https://app.example.test/' } },
     setupFiles: ['./src/test/setup.ts'],

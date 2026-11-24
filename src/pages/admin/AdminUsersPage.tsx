@@ -32,6 +32,7 @@ import {
   Settings,
   Shield,
   Globe,
+  Pencil,
 } from 'lucide-react'
 import { adminAPI } from '~/lib/api/admin'
 import type { AdminGroup, AdminUser, UserAttributeDefinition } from '@/types'
@@ -368,8 +369,8 @@ export function AdminUsersPage() {
 
   const handleToggleStatus = async (userId: number, currentStatus: 'active' | 'disabled') => {
     try {
-      const newStatus = currentStatus === 'active' ? 2 : 1
-      await adminAPI.users.update(userId, { status: newStatus as any })
+      const newStatus: 'active' | 'disabled' = currentStatus === 'active' ? 'disabled' : 'active'
+      await adminAPI.users.update(userId, { status: newStatus })
       toast.success(currentStatus === 'active' ? t('admin.users.userDisabled') : t('admin.users.userEnabled'))
       loadUsers()
     } catch (error: any) {
@@ -561,21 +562,25 @@ export function AdminUsersPage() {
           if (!user) return null
           return (
             <HStack gap={1}>
-              <IconButton
-                label={t('common.edit')}
-                icon={<Icon icon={CheckCircle} />}
-                variant="ghost"
-                onClick={() => {
-                  setEditingUser(user)
-                  setShowCreateEdit(true)
-                }}
-              />
-              <IconButton
-                label={row.status === 'active' ? t('admin.users.disable') : t('admin.users.enable')}
-                icon={<Icon icon={row.status === 'active' ? XCircle : CheckCircle} />}
-                variant="ghost"
-                onClick={() => handleToggleStatus(row.id, row.status)}
-              />
+              <Tooltip content={t('common.edit')}>
+                <IconButton
+                  label={t('common.edit')}
+                  icon={<Icon icon={Pencil} />}
+                  variant="ghost"
+                  onClick={() => {
+                    setEditingUser(user)
+                    setShowCreateEdit(true)
+                  }}
+                />
+              </Tooltip>
+              <Tooltip content={row.status === 'active' ? t('admin.users.disable') : t('admin.users.enable')}>
+                <IconButton
+                  label={row.status === 'active' ? t('admin.users.disable') : t('admin.users.enable')}
+                  icon={<Icon icon={row.status === 'active' ? XCircle : CheckCircle} />}
+                  variant="ghost"
+                  onClick={() => handleToggleStatus(row.id, row.status)}
+                />
+              </Tooltip>
               <MoreMenu
                 label={t('common.more')}
                 alignment="end"

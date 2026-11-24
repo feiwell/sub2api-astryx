@@ -22,7 +22,7 @@ const filters = (patch: Partial<AdminUsageFilters>): AdminUsageFilters => ({ ...
 /** What actually goes on the wire: a parameter that is undefined is not sent. */
 const sent = (query: object) => JSON.parse(JSON.stringify(query))
 
-const OPENING_RANGE = { start_date: '2026-11-20', end_date: '2026-11-21' }
+const OPENING_RANGE = { start_date: '2026-11-21', end_date: '2026-11-21' }
 
 // Every filter of the page set at once.
 const NARROWED = filters({
@@ -58,7 +58,7 @@ const SHARED = {
 }
 
 describe('the filters the page opens with', () => {
-  it('opens on the last 24 hours with nothing else narrowed', () => {
+  it('opens on today with nothing else narrowed', () => {
     expect(sent(buildAdminUsageParams(emptyAdminUsageFilters(NOW)))).toEqual(OPENING_RANGE)
   })
 
@@ -295,7 +295,7 @@ describe('a cleanup task', () => {
 
   it('is asked for the range and the time zone alone when nothing is narrowed', () => {
     expect(buildCleanupRequest(cleanupFiltersOf(filters({})), 'UTC')).toEqual({
-      start_date: '2026-11-20',
+      start_date: '2026-11-21',
       end_date: '2026-11-21',
       timezone: 'UTC',
     })

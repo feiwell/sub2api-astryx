@@ -17,6 +17,7 @@ import {
   CreditCard,
   Mail,
   Database,
+  Download,
 } from 'lucide-react'
 import { adminAPI } from '~/lib/api/admin'
 type SystemSettings = any
@@ -34,8 +35,9 @@ import { EmailSettingsTab } from './settings/EmailSettingsTab'
 import { FeaturesSettingsTab } from './settings/FeaturesSettingsTab'
 import { UsersSettingsTab } from './settings/UsersSettingsTab'
 import { BackupSettingsTab } from './settings/BackupSettingsTab'
+import { UpdateSettingsTab } from './settings/UpdateSettingsTab'
 
-type SettingsTab = 'general' | 'agreement' | 'features' | 'security' | 'users' | 'gateway' | 'payment' | 'email' | 'backup'
+type SettingsTab = 'general' | 'agreement' | 'features' | 'security' | 'users' | 'gateway' | 'payment' | 'email' | 'backup' | 'update'
 
 const TAB_ICONS = {
   general: Home,
@@ -47,6 +49,7 @@ const TAB_ICONS = {
   payment: CreditCard,
   email: Mail,
   backup: Database,
+  update: Download,
 }
 
 export function AdminSettingsPage() {
@@ -125,6 +128,7 @@ export function AdminSettingsPage() {
               <Tab value="payment" icon={<Icon icon={TAB_ICONS.payment} />} label={t('admin.settings.tabs.payment')} />
               <Tab value="email" icon={<Icon icon={TAB_ICONS.email} />} label={t('admin.settings.tabs.email')} />
               <Tab value="backup" icon={<Icon icon={TAB_ICONS.backup} />} label={t('admin.settings.tabs.backup')} />
+              <Tab value="update" icon={<Icon icon={TAB_ICONS.update} />} label={t('admin.settings.tabs.update')} />
             </TabList>
 
             {activeTab === 'general' && (
@@ -153,6 +157,9 @@ export function AdminSettingsPage() {
             )}
             {activeTab === 'backup' && (
               <BackupSettingsTab />
+            )}
+            {activeTab === 'update' && (
+              <UpdateSettingsTab />
             )}
           </VStack>
         </LayoutContent>
