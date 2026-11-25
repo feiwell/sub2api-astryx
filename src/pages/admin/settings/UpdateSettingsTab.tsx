@@ -18,6 +18,7 @@ import {
   type VersionInfo,
   type RollbackVersionInfo,
 } from '~/lib/api/admin/system'
+import { uiUpdateAPI, type UiUpdateStatus } from '~/lib/api/admin/uiUpdate'
 import { useI18n } from '~/i18n'
 import { toast } from '~/lib/toast'
 
@@ -54,6 +55,62 @@ export function UpdateSettingsTab() {
   const [rollbackVersions, setRollbackVersions] = useState<RollbackVersionInfo[]>([])
   const [rollingBack, setRollingBack] = useState<string | null>(null)
   const [rollbackLoading, setRollbackLoading] = useState(false)
+
+  // The frontend is a static tree served by nginx, so it has its own update
+  // channel: a loopback service that pulls and rebuilds `dist`.
+  const [uiStatus, setUiStatus] = useState<UiUpdateStatus | null>(null)
+  const [uiLoading, setUiLoading] = useState(true)
+  const [uiApplying, setUiApplying] = useState(false)
+
+  const loadUi = useCallback(async () => {
+    setUiLoading(true)
+    try {
+      setUiStatus(await uiUpdateAPI.status())
+    } catch {
+      // Older deployments have no update service; the card stays hidden.
+      setUiStatus(null)
+    } finally {
+      setUiLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadUi()
+  }, [loadUi])
+
+  const applyUi = useCallback(async () => {
+    try {
+      setUiApplying(true)
+      await uiUpdateAPI.apply()
+    } catch (error: any) {
+      toast.error(error?.message || t('admin.settings.update.uiFailed'))
+      setUiApplying(false)
+      return
+    }
+    // The build takes tens of seconds; poll until the job leaves "running".
+    for (let attempt = 0; attempt < 180; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      let next: UiUpdateStatus
+      try {
+        next = await uiUpdateAPI.status()
+      } catch {
+        continue
+      }
+      setUiStatus(next)
+      if (next.job.state === 'running') continue
+      setUiApplying(false)
+      if (next.job.state === 'done') {
+        toast.success(t('admin.settings.update.uiDone'))
+        // The open tab still holds the old assets; reload to take the new ones.
+        window.setTimeout(() => window.location.reload(), 1500)
+      } else {
+        toast.error(next.job.log || t('admin.settings.update.uiFailed'))
+      }
+      return
+    }
+    setUiApplying(false)
+    toast.error(t('admin.settings.update.uiFailed'))
+  }, [t])
 
   const check = useCallback(
     async (force = false) => {
@@ -228,6 +285,82 @@ export function UpdateSettingsTab() {
           )}
         </VStack>
       </Card>
+
+      {uiStatus && (
+        <Card padding={5}>
+          <VStack gap={4} hAlign="stretch">
+            <HStack gap={2} vAlign="center">
+              <Icon icon={ServerCog} />
+              <Text weight="semibold">{t('admin.settings.update.uiTitle')}</Text>
+              {!uiLoading && (
+                <Badge
+                  variant={uiStatus.unreachable ? 'neutral' : uiStatus.has_update ? 'warning' : 'success'}
+                  label={
+                    uiStatus.unreachable
+                      ? t('admin.settings.update.uiUnreachable')
+                      : uiStatus.has_update
+                        ? t('admin.settings.update.updateAvailable')
+                        : t('admin.settings.update.upToDate')
+                  }
+                />
+              )}
+              {uiLoading && <Spinner size="sm" />}
+            </HStack>
+
+            <HStack gap={6} vAlign="center" wrap="wrap">
+              <VStack gap={1}>
+                <Text size="sm" color="secondary">
+                  {t('admin.settings.update.uiCurrent')}
+                </Text>
+                <Text weight="semibold">{uiStatus.current_sha || '—'}</Text>
+              </VStack>
+              <VStack gap={1}>
+                <Text size="sm" color="secondary">
+                  {t('admin.settings.update.uiLatest')}
+                </Text>
+                <Text weight="semibold">{uiStatus.latest_sha || '—'}</Text>
+              </VStack>
+              {uiStatus.built_at && (
+                <VStack gap={1}>
+                  <Text size="sm" color="secondary">
+                    {t('admin.settings.update.uiBuiltAt')}
+                  </Text>
+                  <Text weight="semibold">{uiStatus.built_at}</Text>
+                </VStack>
+              )}
+            </HStack>
+
+            <HStack gap={2} wrap="wrap">
+              <Button
+                variant="secondary"
+                icon={<Icon icon={RefreshCw} />}
+                label={t('admin.settings.update.checkNow')}
+                isDisabled={uiLoading || uiApplying}
+                onClick={() => void loadUi()}
+              />
+              {uiStatus.has_update && (
+                <Button
+                  variant="primary"
+                  icon={<Icon icon={Download} />}
+                  label={t('admin.settings.update.uiApply')}
+                  isDisabled={uiApplying}
+                  onClick={() => void applyUi()}
+                />
+              )}
+            </HStack>
+
+            {uiApplying && (
+              <HStack gap={2} vAlign="center">
+                <Spinner size="sm" />
+                <Text size="sm" color="secondary">
+                  {t('admin.settings.update.uiBuilding')}
+                  {uiStatus.job?.step ? ` (${uiStatus.job.step})` : ''}
+                </Text>
+              </HStack>
+            )}
+          </VStack>
+        </Card>
+      )}
 
       {info?.release_info && (
         <Card padding={5}>
