@@ -38,13 +38,16 @@ import {
   type ReAuthPlatform,
 } from './reauthOAuth'
 
-interface ReauthAccountDialogProps {
-  isOpen: boolean
-  account: Account | null
-  onClose: () => void
-  /** Called with the re-authorized account so the list can be refreshed. */
-  onReauthorized: (account: Account) => void
+export interface AuthorizedCredentials {
+  type: 'oauth' | 'setup-token'
+  credentials: Record<string, unknown>
+  extra?: Record<string, unknown>
 }
+type AuthorizationDraft = Pick<Account, 'name' | 'platform' | 'type' | 'proxy_id'> & Partial<Pick<Account, 'credentials' | 'credentials_status'>>
+type ReauthAccountDialogProps = { isOpen: boolean; onClose: () => void } & (
+  | { account: Account | null; onReauthorized: (updated: Account) => void; draft?: never; onAuthorized?: never }
+  | { draft: AuthorizationDraft; onAuthorized: (payload: AuthorizedCredentials) => void; account?: never; onReauthorized?: never }
+)
 
 /**
  * Port of components/admin/account/ReAuthAccountModal.vue: re-runs the OAuth
@@ -52,7 +55,9 @@ interface ReauthAccountDialogProps {
  * Claude also supports setup-token and sessionKey (cookie) auth; OpenAI,
  * Antigravity and Grok accept a refresh token; Grok also accepts an SSO cookie.
  */
-export function ReauthAccountDialog({ isOpen, account, onClose, onReauthorized }: ReauthAccountDialogProps) {
+export function ReauthAccountDialog(props: ReauthAccountDialogProps) {
+  const { isOpen, onClose } = props
+  const account = props.account ?? props.draft
   const { t, te } = useI18n()
   const platform: ReAuthPlatform = reAuthPlatformOf(account?.platform ?? '')
   const isAnthropic = platform === 'anthropic'
@@ -147,18 +152,21 @@ export function ReauthAccountDialog({ isOpen, account, onClose, onReauthorized }
 
   /** Applies new OAuth credentials and reports the updated account. */
   const applyCredentials = useCallback(
-    async (payload: {
-      type: 'oauth' | 'setup-token'
-      credentials: Record<string, unknown>
-      extra?: Record<string, unknown>
-    }) => {
-      if (!account) return
-      const updated = await adminAPI.accounts.applyOAuthCredentials(account.id, payload)
-      toast.success(t('admin.accounts.reAuthorizedSuccess'))
-      onReauthorized(updated)
+    async (payload: AuthorizedCredentials, updateThenClear = false) => {
+      if (props.onAuthorized) {
+        props.onAuthorized(payload)
+      } else if (props.account) {
+        const id = props.account.id
+        let updated: Account
+        if (updateThenClear) {
+          await adminAPI.accounts.update(id, payload)
+          updated = await adminAPI.accounts.clearError(id)
+        } else updated = await adminAPI.accounts.applyOAuthCredentials(id, payload)
+        toast.success(t('admin.accounts.reAuthorizedSuccess'))
+        props.onReauthorized(updated)
+      }
       onClose()
-    },
-    [account, onClose, onReauthorized, t],
+    }, [props, onClose, t],
   )
 
   const handleGenerateUrl = async () => {
@@ -260,12 +268,7 @@ export function ReauthAccountDialog({ isOpen, account, onClose, onReauthorized }
           oauth_type: geminiOAuthType,
           ...(typeof credentials.tier_id === 'string' ? { tier_id: credentials.tier_id } : {}),
         })
-        // Gemini keeps the two-step shape of the Vue flow: update, then clear the error state
-        await adminAPI.accounts.update(account.id, { type: 'oauth', credentials: buildGeminiCredentials(tokenInfo) })
-        const updated = await adminAPI.accounts.clearError(account.id)
-        toast.success(t('admin.accounts.reAuthorizedSuccess'))
-        onReauthorized(updated)
-        onClose()
+        await applyCredentials({ type: 'oauth', credentials: buildGeminiCredentials(tokenInfo) }, true)
       } else if (isAntigravity) {
         const stateToUse = parsedCode.state || oauthState
         if (!sessionId || !stateToUse) {
@@ -278,14 +281,7 @@ export function ReauthAccountDialog({ isOpen, account, onClose, onReauthorized }
           code: parsedCode.code,
           ...(proxyId ? { proxy_id: proxyId } : {}),
         })
-        await adminAPI.accounts.update(account.id, {
-          type: 'oauth',
-          credentials: buildAntigravityCredentials(tokenInfo),
-        })
-        const updated = await adminAPI.accounts.clearError(account.id)
-        toast.success(t('admin.accounts.reAuthorizedSuccess'))
-        onReauthorized(updated)
-        onClose()
+        await applyCredentials({ type: 'oauth', credentials: buildAntigravityCredentials(tokenInfo) }, true)
       } else if (isGrok) {
         const stateToUse = parsedCode.state || oauthState
         if (!sessionId || !stateToUse) {
@@ -608,13 +604,13 @@ export function ReauthAccountDialog({ isOpen, account, onClose, onReauthorized }
   )
 
   return (
-    <Dialog isOpen={isOpen} onOpenChange={(open) => !open && onClose()} width={640} purpose="form">
+    <Dialog isOpen={isOpen} onOpenChange={(open) => !open && !loading && onClose()} width={640} purpose="form">
       <Layout
         header={
           <DialogHeader
-            title={t('admin.accounts.reAuthorizeAccount')}
+            title={t(props.draft ? 'admin.accounts.oauth.completeAuth' : 'admin.accounts.reAuthorizeAccount')}
             subtitle={account ? `${account.name} · ${platformLabel}` : undefined}
-            onOpenChange={(open) => !open && onClose()}
+            onOpenChange={(open) => !open && !loading && onClose()}
           />
         }
         content={
@@ -628,7 +624,7 @@ export function ReauthAccountDialog({ isOpen, account, onClose, onReauthorized }
                     label={t('admin.accounts.oauth.authMethod')}
                     orientation="horizontal"
                     value={addMethod}
-                    onChange={(value) => setAddMethod(value === 'setup-token' ? 'setup-token' : 'oauth')}
+                    onChange={(value) => { setAddMethod(value === 'setup-token' ? 'setup-token' : 'oauth'); setSessionId(''); setAuthUrl(''); setAuthCode('') }}
                   >
                     <RadioListItem value="oauth" label={t('admin.accounts.types.oauth')} />
                     <RadioListItem value="setup-token" label={t('admin.accounts.setupTokenLongLived')} />
@@ -678,7 +674,7 @@ export function ReauthAccountDialog({ isOpen, account, onClose, onReauthorized }
         footer={
           <LayoutFooter>
             <HStack gap={3} hAlign="end">
-              <Button label={t('common.cancel')} variant="secondary" onClick={onClose} />
+              <Button label={t('common.cancel')} variant="secondary" isDisabled={loading} onClick={onClose} />
               {inputMethod === 'manual' && (
                 <Button
                   label={loading ? t('admin.accounts.oauth.verifying') : t('admin.accounts.oauth.completeAuth')}

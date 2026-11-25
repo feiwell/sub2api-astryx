@@ -16,7 +16,8 @@ import { TextInput } from '@astryxdesign/core/TextInput'
 import { keysAPI } from '@/api'
 import type { ApiKey, Group, UpdateApiKeyRequest } from '@/types'
 import { formatDateTime } from '@/utils/format'
-import { KEY_GROUP_PROVIDERS, getKeyGroupProvider, type KeyGroupProvider } from '@/utils/keyGroupProviders'
+import { PlatformMarkIcon } from '~/components/common/PlatformMarkIcon'
+import { KEY_GROUP_PROVIDER_ICONS, KEY_GROUP_PROVIDERS, getKeyGroupProvider, type KeyGroupProvider } from '@/utils/keyGroupProviders'
 import { useI18n } from '~/i18n'
 import { toast } from '~/lib/toast'
 import { useGroupOptions } from './groupOptions'
@@ -368,6 +369,9 @@ export function KeyFormDialog({
                           key={value}
                           value={value}
                           label={t(`keys.providers.${value}`)}
+                          icon={<HStack gap={0.5} vAlign="center">
+                            {KEY_GROUP_PROVIDER_ICONS[value].map(platform => <PlatformMarkIcon key={platform} platform={platform} />)}
+                          </HStack>}
                           isDisabled={groupsOf(value).length === 0}
                         />
                       ))}

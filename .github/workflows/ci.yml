@@ -38,3 +38,46 @@ jobs:
           trap 'docker stop astryx-ci >/dev/null' EXIT
           curl --fail --silent --show-error --retry 10 --retry-connrefused --retry-delay 1 --output /dev/null http://127.0.0.1:8080/index.html
           node deploy/smoke.mjs
+
+      - name: Package CI-verified dist
+        if: >-
+          github.repository == 'feiwell/sub2api-astryx' &&
+          ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+          github.event_name == 'pull_request')
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -eu
+          if [ "$EVENT_NAME" = pull_request ]; then
+            CHANNEL=pr-merge
+            ARTIFACT_NAME="astryx-pr-${PR_NUMBER}-${SOURCE_SHA}"
+          else
+            CHANNEL=main
+            ARTIFACT_NAME="astryx-main-${SOURCE_SHA}"
+          fi
+          test -f dist/index.html
+          export SOURCE_DATE_EPOCH=0
+          tar --sort=name --mtime="@${SOURCE_DATE_EPOCH}" --owner=0 --group=0 --numeric-owner -cf - -C dist . | gzip -n > dist.tar.gz
+          sha256sum dist.tar.gz > dist.tar.gz.sha256
+          CHANNEL="$CHANNEL" SOURCE_SHA="$SOURCE_SHA" node -e 'require("fs").writeFileSync("manifest.json", JSON.stringify({source_sha: process.env.SOURCE_SHA, channel: process.env.CHANNEL}, null, 2) + "\n")'
+          echo "artifact_name=$ARTIFACT_NAME" >> "$GITHUB_ENV"
+
+      - name: Upload CI-verified package
+        if: >-
+          github.repository == 'feiwell/sub2api-astryx' &&
+          ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+          github.event_name == 'pull_request')
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.artifact_name }}
+          path: |
+            dist.tar.gz
+            dist.tar.gz.sha256
+            manifest.json
+          if-no-files-found: error
+          compression-level: 0
+          overwrite: false

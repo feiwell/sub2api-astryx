@@ -39,7 +39,9 @@ export const extraMessages = {
       notFoundTitle: '页面不存在',
       notFoundDescription: '你访问的页面不存在或已被移除。',
       userFallback: '用户 #{id}',
-      accountCreateApiKeyOnly: '这里创建的是 Base URL + API Key 账号；OAuth 和 Setup Token 账号需要授权流程，请在旧版界面添加。',
+      accountMappingInvalid: '模型映射须为 JSON 对象，模型名和目标名均须为非空字符串。',
+      accountAuthorized: '已授权，重新授权',
+      accountLocation: '服务区域',
       noAccountsDescription: '请调整筛选条件，或添加一个新账号。',
       keyUsage: {
         showKey: '显示密钥',
@@ -859,7 +861,9 @@ API 调用规范：
       notFoundTitle: 'Page not found',
       notFoundDescription: 'The page you are looking for does not exist or has been removed.',
       userFallback: 'User #{id}',
-      accountCreateApiKeyOnly: 'This form creates Base URL + API Key accounts. OAuth and setup-token accounts need an authorization flow; add them in the classic UI.',
+      accountMappingInvalid: 'Enter a JSON object with non-empty model names and target names.',
+      accountAuthorized: 'Authorized · authorize again',
+      accountLocation: 'Service location',
       noAccountsDescription: 'Try adjusting your filters or add a new account.',
       keyUsage: {
         showKey: 'Show key',

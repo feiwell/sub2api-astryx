@@ -3,7 +3,7 @@ import spriteUrl from './provider-logos.svg?no-inline'
 
 export type ProviderBrand = ComponentType<SVGProps<SVGSVGElement>>
 
-function providerIcon(symbol: string): ProviderBrand {
+export function providerIcon(symbol: string): ProviderBrand {
   return function ProviderIcon(props) {
     return (
       <svg viewBox="0 0 24 24" focusable="false" {...props}>

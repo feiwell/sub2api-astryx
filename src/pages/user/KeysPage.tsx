@@ -35,7 +35,6 @@ import {
   CircleCheck,
   Copy,
   KeyRound,
-  Pencil,
   Plus,
   RefreshCw,
   RotateCw,
@@ -43,7 +42,6 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Terminal,
-  Trash2,
   Upload,
 } from 'lucide-react'
 import { authAPI, keysAPI, usageAPI, userGroupsAPI } from '@/api'
@@ -53,6 +51,7 @@ import type { ApiKey, Group, PublicSettings } from '@/types'
 import { formatDateTime } from '@/utils/format'
 import { maskApiKey } from '@/utils/maskApiKey'
 import { getConfiguredTablePageSizeOptions } from '@/utils/tablePreferences'
+import { RowActionButton } from '~/components/common/RowActionButton'
 import { Page } from '~/components/common/Page'
 import { BulkEditKeysModal } from '~/components/keys/BulkEditKeysModal'
 import { useCcSwitchImport } from '~/components/keys/CcSwitchImport'
@@ -603,20 +602,8 @@ export function KeysPage() {
               isLoading={togglingId === apiKey.id}
               onClick={() => void toggleKeyStatus(apiKey)}
             />
-            <IconButton
-              variant="ghost"
-              size="sm"
-              label={t('common.edit')}
-              tooltip={t('common.edit')}
-              icon={<Icon icon={Pencil} />}
-              onClick={() => openEdit(apiKey)}
-            />
-            <IconButton
-              variant="ghost"
-              size="sm"
-              label={t('common.delete')}
-              tooltip={t('common.delete')}
-              icon={<Icon icon={Trash2} />}
+            <RowActionButton action="edit" onClick={() => openEdit(apiKey)} />
+            <RowActionButton action="delete"
               onClick={() => {
                 setDeletingKey(apiKey)
                 setDeleteOpen(true)
