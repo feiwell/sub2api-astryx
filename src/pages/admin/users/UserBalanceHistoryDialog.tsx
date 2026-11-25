@@ -92,6 +92,23 @@ export function UserBalanceHistoryDialog({
     { value: 'admin_balance', label: t('admin.users.typeAdminBalance') },
   ]
 
+  /** The backend sends enum members; show them in the reader's language, passing through anything new. */
+  const typeLabel = (type: string) =>
+    typeOptions.find((option) => option.value === type)?.label ?? type
+
+  const statusLabel = (status: string) => {
+    switch (status) {
+      case 'used':
+        return t('admin.users.balanceStatusUsed')
+      case 'unused':
+        return t('admin.users.balanceStatusUnused')
+      case 'expired':
+        return t('admin.users.balanceStatusExpired')
+      default:
+        return status
+    }
+  }
+
   const columns: TableColumn<BalanceHistoryRow>[] = [
     {
       key: 'code',
@@ -103,7 +120,7 @@ export function UserBalanceHistoryDialog({
       key: 'type',
       header: t('admin.users.type'),
       width: pixel(120),
-      renderCell: (row) => <Badge label={row.type} variant="neutral" />,
+      renderCell: (row) => <Badge label={typeLabel(row.type)} variant="neutral" />,
     },
     {
       key: 'value',
@@ -122,7 +139,7 @@ export function UserBalanceHistoryDialog({
       key: 'status',
       header: t('admin.users.columns.status'),
       width: pixel(100),
-      renderCell: (row) => <Badge label={row.status} variant="neutral" />,
+      renderCell: (row) => <Badge label={statusLabel(row.status)} variant="neutral" />,
     },
     {
       key: 'created_at',
