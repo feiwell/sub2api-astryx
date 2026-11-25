@@ -2,7 +2,6 @@ import {
   createContext,
   use,
   useCallback,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -36,36 +35,20 @@ export const PageTurnContext = createContext<(href: string) => void>(() => {})
 
 /**
  * For the layout that holds the side nav and the pages. `turnTo` goes to the page at a path by
- * turning the page. `pathname` is the page the side nav marks as showing: the one being turned to
- * while its code is still on the way, so a press shows at once.
+ * turning the page. `pathname` is the page the side nav marks as showing.
  */
 export function usePageTurn(): { turnTo: (href: string) => void; pathname: string } {
   const navigate = useNavigate()
   const location = useLocation()
-  const [awaited, setAwaited] = useState<{ href: string; fromKey: string } | null>(null)
-  let awaitedHref = awaited?.href
-  if (awaited && awaited.fromKey !== location.key) {
-    awaitedHref = undefined
-    setAwaited(null)
-  }
 
   const shown = useRef(location)
   useLayoutEffect(() => {
     shown.current = location
   }, [location])
-  const latestTurn = useRef(0)
-  useEffect(
-    () => () => {
-      latestTurn.current = -1
-    },
-    [],
-  )
 
   const turnTo = useCallback(
     (href: string) => {
-      const from = shown.current
-      const turn = ++latestTurn.current
-      if (href === from.pathname) {
+      if (href === shown.current.pathname) {
         void navigate(href)
         return
       }
@@ -73,17 +56,17 @@ export function usePageTurn(): { turnTo: (href: string) => void; pathname: strin
         void navigate(href, { viewTransition: true })
         return
       }
-      // Turning now would bring in a spinner. Fetch the code of the page first, and turn once it is here,
-      // unless the user has gone somewhere else meanwhile.
-      setAwaited({ href, fromKey: from.key })
-      void preloadPageCode(href).then(() => {
-        if (turn === latestTurn.current && shown.current.key === from.key) void navigate(href, { viewTransition: true })
-      })
+      // The code is still on its way. Go at once anyway: the route's Suspense
+      // fallback covers the wait, whereas holding the navigation back until the
+      // code arrived left the old page on screen with nothing to show that the
+      // press had registered.
+      void preloadPageCode(href)
+      void navigate(href)
     },
     [navigate],
   )
 
-  return { turnTo, pathname: awaitedHref ?? location.pathname }
+  return { turnTo, pathname: location.pathname }
 }
 
 /** For controls in the side nav that are not links: go to `href`, turning the page where pages turn. */

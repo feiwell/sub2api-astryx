@@ -146,7 +146,7 @@ describe('turning the page from the side nav', () => {
     expect(startViewTransition).not.toHaveBeenCalled()
   })
 
-  it('waits for the code of a page that is not in memory, and marks the page in the side nav meanwhile', async () => {
+  it('goes at once to a page whose code is not in memory, and marks it in the side nav', async () => {
     const user = userEvent.setup()
     const code = codeOnTheWay()
     isPageCodeReady.mockImplementation((href) => href !== '/usage')
@@ -155,14 +155,13 @@ describe('turning the page from the side nav', () => {
 
     await user.click(screen.getByRole('link', { name: 'Usage' }))
 
+    // The press is acted on immediately: the wait is the route's Suspense fallback's job,
+    // not a reason to leave the previous page on screen.
     expect(screen.getByText('Marked: /usage')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'dashboard page' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'usage page' })).toBeInTheDocument()
     expect(startViewTransition).not.toHaveBeenCalled()
 
     await act(async () => code.arrive())
-
-    expect(await screen.findByRole('heading', { name: 'usage page' })).toBeInTheDocument()
-    expect(startViewTransition).toHaveBeenCalledTimes(1)
   })
 
   it('does not turn to a page the user moved on from while its code was on the way', async () => {
