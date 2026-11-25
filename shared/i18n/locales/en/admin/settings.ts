@@ -26,6 +26,7 @@ export default {
         needRestart: 'Update downloaded. Restart the service to apply it.',
         restartNow: 'Restart service',
         restarting: 'Restarting service…',
+        restartTimedOut: 'The service did not come back in time — reload the page to check',
         restartFailed: 'Failed to restart the service',
         checkFailed: 'Failed to check for updates',
         updateSuccess: 'Update completed',

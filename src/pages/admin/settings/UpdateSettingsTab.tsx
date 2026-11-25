@@ -21,6 +21,23 @@ import {
 import { useI18n } from '~/i18n'
 import { toast } from '~/lib/toast'
 
+const RESTART_POLL_INTERVAL_MS = 1000
+const RESTART_POLL_ATTEMPTS = 60
+
+/** Resolves once /health answers, rejects after a minute of the service being down. */
+async function waitForService(timeoutMessage: string): Promise<void> {
+  for (let attempt = 0; attempt < RESTART_POLL_ATTEMPTS; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, RESTART_POLL_INTERVAL_MS))
+    try {
+      const response = await fetch('/health', { cache: 'no-store' })
+      if (response.ok) return
+    } catch {
+      // Still down: keep waiting.
+    }
+  }
+  throw new Error(timeoutMessage)
+}
+
 /**
  * Online update panel: check GitHub releases, show current/latest version,
  * apply an in-place update, then offer a restart (the binary swap only takes
@@ -89,9 +106,13 @@ export function UpdateSettingsTab() {
       setRestarting(true)
       await systemAPI.restartService()
       toast.success(t('admin.settings.update.restarting'))
+      // The old build answers this call and then exits; systemd brings the new
+      // one up a few seconds later. Reload only once it is actually answering,
+      // otherwise the tab lands on a connection error.
+      await waitForService(t('admin.settings.update.restartTimedOut'))
+      window.location.reload()
     } catch (error: any) {
       toast.error(error?.message || t('admin.settings.update.restartFailed'))
-    } finally {
       setRestarting(false)
     }
   }, [t])

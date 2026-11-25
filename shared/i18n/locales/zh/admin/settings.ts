@@ -26,6 +26,7 @@ export default {
         needRestart: '更新已下载，需要重启服务才能生效。',
         restartNow: '重启服务',
         restarting: '正在重启服务…',
+        restartTimedOut: '服务重启超时，请手动刷新页面确认',
         restartFailed: '重启服务失败',
         checkFailed: '检查更新失败',
         updateSuccess: '更新完成',
