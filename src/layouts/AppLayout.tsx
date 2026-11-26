@@ -5,6 +5,7 @@ import { SideNav, SideNavHeading, SideNavItem, SideNavSection, useSideNavCollaps
 import { NavIcon } from '@astryxdesign/core/NavIcon'
 import { Icon } from '@astryxdesign/core/Icon'
 import { IconButton } from '@astryxdesign/core/IconButton'
+import { Button } from '@astryxdesign/core/Button'
 import { Avatar } from '@astryxdesign/core/Avatar'
 import { DropdownMenu } from '@astryxdesign/core/DropdownMenu'
 import { Text } from '@astryxdesign/core/Text'
@@ -36,6 +37,7 @@ import {
 import { ColorModeToggle, LocaleSwitcher } from './HeaderControls'
 import { PageStage, PageTurnContext, PageTurnLink, usePageTurn, useTurnsPages, useTurnTo } from './PageTurn'
 import { toast } from '~/lib/toast'
+import { useUpdateNotice } from './useUpdateNotice'
 
 function SiteLogo() {
   const siteLogo = useAppStore((s) => s.siteLogo)
@@ -63,12 +65,15 @@ function UserCard() {
       placement="above"
       alignment="start"
       renderTrigger={(triggerProps) => (
-        <button
+        <Button
           {...triggerProps}
+          label={name}
+          variant="ghost"
           type="button"
           aria-label={isCollapsed ? name : undefined}
           data-page-turn={turnsPages ? '' : undefined}
           className={isCollapsed ? 'sidenav-user is-collapsed' : 'sidenav-user'}>
+          <span className="sidenav-user__content">
           <Avatar name={name} src={user.avatar_url || undefined} size="sm" tooltip={false} />
           {!isCollapsed && (
             <>
@@ -81,7 +86,8 @@ function UserCard() {
               <Icon icon={ChevronUpDownIcon} size="sm" color="secondary" />
             </>
           )}
-        </button>
+          </span>
+        </Button>
       )}
       header={
         <div style={{ display: 'flex', flexDirection: 'column', padding: '8px 12px' }}>
@@ -157,6 +163,7 @@ export function AppLayout({ children }: { children?: React.ReactNode } = {}) {
   const docUrl = useAppStore((s) => s.docUrl)
   const settings = useAppStore((s) => s.publicSettings)
   const isAdmin = useAuthStore(selectIsAdmin)
+  const { frontendUpdate, backendUpdate } = useUpdateNotice(isAdmin)
   const isSimpleMode = useAuthStore(selectIsSimpleMode)
   const canUseBatchImage = useBatchImageAccess((s) => s.canUseBatchImage)
   const refreshBatchImage = useBatchImageAccess((s) => s.refresh)
@@ -195,7 +202,23 @@ export function AppLayout({ children }: { children?: React.ReactNode } = {}) {
           collapsible
           header={
             <VStack gap={1} hAlign="stretch">
-              <SideNavHeading as={PageTurnLink} heading={siteName} headingHref="/dashboard" icon={<NavIcon icon={<SiteLogo />} />} />
+              <div className="site-heading-with-update">
+                <SideNavHeading as={PageTurnLink} heading={siteName} headingHref="/dashboard" icon={<NavIcon icon={<SiteLogo />} />} />
+                {isAdmin && (frontendUpdate || backendUpdate) && (
+                  <span
+                    className="site-update-indicator"
+                    role="status"
+                    aria-label={[
+                      frontendUpdate && t('astryx.frontendUpdateAvailable'),
+                      backendUpdate && t('astryx.backendUpdateAvailable'),
+                    ].filter(Boolean).join(' / ')}
+                    title={[
+                      frontendUpdate && t('astryx.frontendUpdateAvailable'),
+                      backendUpdate && t('astryx.backendUpdateAvailable'),
+                    ].filter(Boolean).join(' / ')}
+                  />
+                )}
+              </div>
               <VersionBadge onNavigate={turnTo} />
             </VStack>
           }

@@ -233,6 +233,17 @@ body {
   padding: 4px;
 }
 
+.sidenav-user > span:first-child > span:only-child {
+  flex: 1;
+}
+
+.sidenav-user__content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
 .sidenav-user__text {
   display: flex;
   min-width: 0;
@@ -622,4 +633,33 @@ body {
 .row-action-delete:is(:hover, :focus-visible) {
   background-color: var(--color-error-muted);
   color: var(--color-text-error);
+}
+
+/* Keep the selection marker column aligned across group options. */
+[role="option"]:has(.key-group-option) > span:last-child:empty {
+  display: inline-flex;
+}
+
+.site-heading-with-update {
+  position: relative;
+}
+
+.site-update-indicator {
+  position: absolute;
+  top: 8px;
+  inset-inline-end: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #16a34a;
+  box-shadow: 0 0 0 2px var(--color-background-body);
+  animation: site-update-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes site-update-pulse {
+  50% { opacity: 0.4; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-update-indicator { animation: none; }
 }

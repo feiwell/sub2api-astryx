@@ -20,6 +20,8 @@ export const extraMessages = {
       affiliateTransferRecords: '提现记录',
     },
     astryx: {
+      frontendUpdateAvailable: '前端有更新，刷新页面以加载',
+      backendUpdateAvailable: '后端有更新',
       adminPanel: '管理后台',
       adminSection: '管理',
       navGroups: {
@@ -842,6 +844,8 @@ API 调用规范：
       affiliateTransferRecords: 'Withdrawal Records',
     },
     astryx: {
+      frontendUpdateAvailable: 'Frontend update available. Refresh to load it.',
+      backendUpdateAvailable: 'Backend update available.',
       adminPanel: 'Admin console',
       adminSection: 'Admin',
       navGroups: {

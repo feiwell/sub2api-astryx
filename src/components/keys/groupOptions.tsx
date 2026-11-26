@@ -7,6 +7,7 @@ import type { Group } from '@/types'
 import { formatPeakRateWindow, serverTimezoneLabel } from '@/utils/peak-rate'
 import { useI18n } from '~/i18n'
 import { useAppStore } from '~/stores/app'
+import { PlatformMarkIcon } from '~/components/common/PlatformMarkIcon'
 
 /**
  * Options and renderers for picking a group in a Selector, shared by the keys
@@ -64,6 +65,9 @@ export function useGroupOptions(
     const details = [group.description, peak && t('common.peakRateTooltip', { window: peak })].filter(Boolean)
     return (
       <SelectorOption
+        className="key-group-option"
+        style={{ width: '100%' }}
+        icon={<PlatformMarkIcon platform={group.platform} />}
         label={`${group.name} · ${platformLabel(group)}`}
         description={details.length > 0 ? details.join(' · ') : undefined}
         endContent={rateBadge(group)}
@@ -76,6 +80,7 @@ export function useGroupOptions(
     if (!group) return option.label || option.value
     return (
       <HStack gap={1.5} vAlign="center">
+        <PlatformMarkIcon platform={group.platform} />
         <Text type="label" maxLines={1}>
           {group.name}
         </Text>

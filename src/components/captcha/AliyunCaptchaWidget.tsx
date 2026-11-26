@@ -1,5 +1,6 @@
 import { useEffect, useId, useImperativeHandle, useRef, useState, type Ref } from 'react'
 import { useI18n, getLocale } from '~/i18n'
+import { Button } from '@astryxdesign/core/Button'
 
 interface AliyunCaptchaInitOptions {
   SceneId: string
@@ -58,7 +59,7 @@ type CaptchaState = 'idle' | 'verifying' | 'verified'
 
 /**
  * React port of AliyunCaptchaWidget.vue. The SDK binds to a native trigger
- * button by id, so this keeps a plain <button> styled with Astryx tokens.
+ * button by id, so the Astryx button keeps a stable DOM id.
  */
 export function AliyunCaptchaWidget(props: {
   sceneId: string
@@ -208,6 +209,11 @@ export function AliyunCaptchaWidget(props: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.sceneId, props.prefix])
 
+  useEffect(() => {
+    const button = document.getElementById(buttonId) as HTMLButtonElement | null
+    if (button) button.disabled = state === 'verified'
+  }, [buttonId, props.sceneId, props.prefix, state])
+
   if (!props.sceneId || !props.prefix) return null
   const label =
     state === 'verified'
@@ -217,15 +223,16 @@ export function AliyunCaptchaWidget(props: {
         : t('auth.captchaClickToVerify')
   return (
     <div className="captcha-aliyun">
-      <button
+      <Button
         id={buttonId}
+        label={label}
         type="button"
         className={state === 'verified' ? 'captcha-aliyun__button is-verified' : 'captcha-aliyun__button'}
-        disabled={state === 'verified'}
+        isDisabled={state === 'verified'}
       >
         <span aria-hidden="true">{state === 'verified' ? '✓' : '🛡'}</span>
         <span>{label}</span>
-      </button>
+      </Button>
       <div id={elementId} />
     </div>
   )

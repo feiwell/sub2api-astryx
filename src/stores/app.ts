@@ -6,6 +6,8 @@
 import { create } from 'zustand'
 import type { PublicSettings } from '@/types'
 import { getPublicSettings as fetchPublicSettingsAPI } from '@/api/auth'
+import { sanitizeUrl } from '@/utils/url'
+import { toAppPath } from '@/utils/appPath'
 
 export type ColorMode = 'light' | 'dark'
 
@@ -58,6 +60,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     const siteName = config.site_name && config.site_name !== 'Sub2API' ? config.site_name : defaultSiteName
     config = { ...config, site_name: siteName }
     window.__APP_CONFIG__ = { ...config }
+    const favicon = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+    if (favicon) {
+      favicon.href = sanitizeUrl(config.site_logo || '', { allowRelative: true, allowDataUrl: true }) || toAppPath('/logo.svg')
+      favicon.removeAttribute('type')
+    }
     set({
       publicSettings: config,
       publicSettingsLoaded: true,

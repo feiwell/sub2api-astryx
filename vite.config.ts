@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { defineConfig, loadEnv, normalizePath, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'node:path'
@@ -86,6 +87,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, import.meta.dirname, 'VITE_')
   const backendUrl = env.VITE_DEV_PROXY_TARGET || 'http://localhost:8080'
   const devPort = Number(env.VITE_DEV_PORT || 3100)
+  const buildId = randomUUID()
 
   return {
     plugins: [
@@ -94,6 +96,11 @@ export default defineConfig(({ mode }) => {
       injectPublicSettings(backendUrl),
       warmLocale(),
       distributionNotices(import.meta.dirname),
+      {
+        name: 'frontend-build-id',
+        apply: 'build',
+        transformIndexHtml: () => [{ tag: 'meta', attrs: { name: 'frontend-build-id', content: buildId }, injectTo: 'head' }],
+      },
     ],
     resolve: { tsconfigPaths: true },
     server: {

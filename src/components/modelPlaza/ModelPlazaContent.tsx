@@ -3,6 +3,8 @@ import { VStack, HStack } from '@astryxdesign/core/Layout'
 import { Text } from '@astryxdesign/core/Text'
 import { Center } from '@astryxdesign/core/Center'
 import { Spinner } from '@astryxdesign/core/Spinner'
+import { Button } from '@astryxdesign/core/Button'
+import { TextInput } from '@astryxdesign/core/TextInput'
 import type { ModelPlazaResponse, ModelPlazaGroup } from '@/api/modelPlaza'
 import { useAuthStore } from '~/stores/auth'
 import { marked } from 'marked'
@@ -131,20 +133,9 @@ export function ModelPlazaContent({ response, loading, error, embedded }: ModelP
             Platform
           </Text>
           <div className="flex flex-wrap gap-2">
-            <button
-              className={`chip ${selectedPlatform === 'all' ? 'chip-active' : 'chip-inactive'}`}
-              onClick={() => setSelectedPlatform('all')}
-            >
-              All
-            </button>
+            <Button label="All" size="sm" variant={selectedPlatform === 'all' ? 'primary' : 'secondary'} aria-pressed={selectedPlatform === 'all'} onClick={() => setSelectedPlatform('all')} />
             {platforms.map((p) => (
-              <button
-                key={p}
-                className={`chip ${selectedPlatform === p ? 'chip-active' : 'chip-inactive'}`}
-                onClick={() => setSelectedPlatform(p)}
-              >
-                {p}
-              </button>
+              <Button key={p} label={p} size="sm" variant={selectedPlatform === p ? 'primary' : 'secondary'} aria-pressed={selectedPlatform === p} onClick={() => setSelectedPlatform(p)} />
             ))}
           </div>
         </HStack>
@@ -154,20 +145,9 @@ export function ModelPlazaContent({ response, loading, error, embedded }: ModelP
             Group
           </Text>
           <div className="flex flex-wrap gap-2">
-            <button
-              className={`chip ${selectedGroupId === 'all' ? 'chip-active' : 'chip-inactive'}`}
-              onClick={() => setSelectedGroupId('all')}
-            >
-              All
-            </button>
+            <Button label="All" size="sm" variant={selectedGroupId === 'all' ? 'primary' : 'secondary'} aria-pressed={selectedGroupId === 'all'} onClick={() => setSelectedGroupId('all')} />
             {groupOptions.map((g) => (
-              <button
-                key={g.id}
-                className={`chip ${selectedGroupId === g.id ? 'chip-active' : 'chip-inactive'}`}
-                onClick={() => setSelectedGroupId(g.id)}
-              >
-                {g.name}
-              </button>
+              <Button key={g.id} label={g.name} size="sm" variant={selectedGroupId === g.id ? 'primary' : 'secondary'} aria-pressed={selectedGroupId === g.id} onClick={() => setSelectedGroupId(g.id)} />
             ))}
           </div>
         </HStack>
@@ -177,20 +157,9 @@ export function ModelPlazaContent({ response, loading, error, embedded }: ModelP
             Rate
           </Text>
           <div className="flex flex-wrap gap-2">
-            <button
-              className={`chip ${selectedRate === 'all' ? 'chip-active' : 'chip-inactive'}`}
-              onClick={() => setSelectedRate('all')}
-            >
-              All
-            </button>
+            <Button label="All" size="sm" variant={selectedRate === 'all' ? 'primary' : 'secondary'} aria-pressed={selectedRate === 'all'} onClick={() => setSelectedRate('all')} />
             {rates.map((r) => (
-              <button
-                key={r}
-                className={`chip ${selectedRate === r ? 'chip-active' : 'chip-inactive'}`}
-                onClick={() => setSelectedRate(r)}
-              >
-                {r}x
-              </button>
+              <Button key={r} label={`${r}x`} size="sm" variant={selectedRate === r ? 'primary' : 'secondary'} aria-pressed={selectedRate === r} onClick={() => setSelectedRate(r)} />
             ))}
           </div>
         </HStack>
@@ -199,23 +168,16 @@ export function ModelPlazaContent({ response, loading, error, embedded }: ModelP
           <Text size="sm" weight="semibold" className="w-10 shrink-0 pt-2 uppercase tracking-wider text-gray-400 dark:text-dark-500">
             Model
           </Text>
-          <div className="relative w-full sm:w-72">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search models..."
-              className="input w-full rounded-lg py-1.5 pl-3 pr-9"
-            />
-            {searchQuery && (
-              <button
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400"
-                onClick={() => setSearchQuery('')}
-              >
-                ×
-              </button>
-            )}
-          </div>
+          <TextInput
+            label="Search models"
+            isLabelHidden
+            type="search"
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search models..."
+            hasClear
+            width="100%"
+          />
         </HStack>
       </VStack>
 
