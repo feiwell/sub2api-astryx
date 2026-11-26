@@ -915,7 +915,7 @@ export function AdminUsersPage() {
                   plugins={{pagination: paginationPlugin}}
                 />
               )}
-              <LoadingOverlay show={loading && rows.length > 0} label={t('common.loading')} />
+              <LoadingOverlay show={loading && rows.length > 0} />
             </Section>
           </VStack>
         </LayoutContent>

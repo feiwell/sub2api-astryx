@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertDialog } from '@astryxdesign/core/AlertDialog'
 import { Card } from '@astryxdesign/core/Card'
 import { Text } from '@astryxdesign/core/Text'
@@ -1107,7 +1107,7 @@ export function AdminAccountsPage() {
           )}
           {/* Refreshing or filtering keeps the rows on screen, so the busy state
               has to be drawn over them. */}
-          <LoadingOverlay show={loading && accounts.length > 0} label={t('common.loading')} />
+          <LoadingOverlay show={loading && accounts.length > 0} />
         </Card>
       </VStack>
 

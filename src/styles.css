@@ -438,6 +438,47 @@ body {
   }
 }
 
+/*
+ * List busy: the thin line a table card shows while its rows are being replaced. It sits on the
+ * top edge and takes no clicks, so the old rows stay readable until the new ones arrive.
+ */
+.list-busy {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  z-index: 3;
+  height: 2px;
+  overflow: hidden;
+  pointer-events: none;
+  border-start-start-radius: inherit;
+  border-start-end-radius: inherit;
+}
+
+.list-busy__bar {
+  display: block;
+  height: 100%;
+  width: 38%;
+  background: var(--astryx-color-accent-9, #3b82f6);
+  animation: list-busy-slide 1.05s ease-in-out infinite;
+}
+
+@keyframes list-busy-slide {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(370%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .list-busy__bar {
+    animation: none;
+    width: 100%;
+    opacity: 0.6;
+  }
+}
+
 .page-stage[data-page-turn='a'] {
   view-transition-name: page-a;
 }

@@ -494,7 +494,7 @@ export function AdminGroupsPage() {
                   hasHover
                 />
               )}
-              <LoadingOverlay show={loading && rows.length > 0} label={t('common.loading')} />
+              <LoadingOverlay show={loading && rows.length > 0} />
             </Card>
           </VStack>
 
