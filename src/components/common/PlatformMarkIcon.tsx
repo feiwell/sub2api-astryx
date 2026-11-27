@@ -25,14 +25,18 @@ function TypeSafe(props: SVGProps<SVGSVGElement>) {
 }
 
 const platformMarks = new Map<string, ProviderBrand>([
-  ['anthropic', CLAUDE], ['openai', GPT], ['gemini', GEMINI], ['antigravity', ANTIGRAVITY],
+  ['anthropic', CLAUDE], ['claude', CLAUDE], ['openai', GPT], ['gpt', GPT], ['codex', GPT], ['gemini', GEMINI], ['antigravity', ANTIGRAVITY],
   ['grok', providerIcon('grok')], ['kimi', providerIcon('kimi')], ['zhipu', providerIcon('zhipu')],
   ['deepseek', providerIcon('deepseek')], ['minimax', providerIcon('minimax')],
   ['opencode_go', providerIcon('opencode_go')], ['cline', providerIcon('cline')],
   ['command_code', CommandCode], ['typesafe', TypeSafe],
 ])
 
+export function getPlatformMark(platform: string): ProviderBrand | undefined {
+  return platformMarks.get(platform.trim().toLowerCase())
+}
+
 export function PlatformMarkIcon({ platform }: { platform: string }) {
-  const mark = platformMarks.get(platform)
+  const mark = getPlatformMark(platform)
   return mark ? <Icon icon={mark} size="sm" data-platform-mark={platform} /> : null
 }

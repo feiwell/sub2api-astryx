@@ -42,9 +42,14 @@ import { useUpdateNotice } from './useUpdateNotice'
 function SiteLogo() {
   const siteLogo = useAppStore((s) => s.siteLogo)
   if (siteLogo) {
-    return <img src={siteLogo} alt="" width={20} height={20} style={{ borderRadius: 4, objectFit: 'contain' }} />
+    return (
+      <NavIcon
+        style={{ backgroundColor: 'transparent', borderRadius: 0 }}
+        icon={<img src={siteLogo} alt="" width={32} height={32} style={{ objectFit: 'contain' }} />}
+      />
+    )
   }
-  return <Icon icon={CubeTransparentIcon} size="sm" />
+  return <NavIcon icon={<Icon icon={CubeTransparentIcon} size="sm" />} />
 }
 
 /** The signed-in user at the foot of the side nav: avatar, name and balance. Opens the account menu. */
@@ -203,7 +208,7 @@ export function AppLayout({ children }: { children?: React.ReactNode } = {}) {
           header={
             <VStack gap={1} hAlign="stretch">
               <div className="site-heading-with-update">
-                <SideNavHeading as={PageTurnLink} heading={siteName} headingHref="/dashboard" icon={<NavIcon icon={<SiteLogo />} />} />
+                <SideNavHeading as={PageTurnLink} heading={siteName} headingHref="/dashboard" icon={<SiteLogo />} />
                 {isAdmin && (frontendUpdate || backendUpdate) && (
                   <span
                     className="site-update-indicator"
