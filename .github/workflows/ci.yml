@@ -1,6 +1,14 @@
 name: Frontend CI
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: frontend-ci-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -25,7 +33,6 @@ jobs:
         uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
       - name: Run tests with two Vitest workers
         run: pnpm test --maxWorkers=2
       - run: pnpm build

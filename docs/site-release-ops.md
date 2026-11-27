@@ -4,7 +4,7 @@
 
 ## 准备候选包
 
-在 GitHub Actions 选择 **Prepare site release → Run workflow → main**，填写后端 tag 和前端 SHA。在测试和上传都成功后记录正式运行的 run ID、main 的 SHA、artifact ID 和下载摘要。PR 预览、分支产物、失败或跳过联合测试的运行都不能上线。工作流没有生产凭据；绿色运行仅表示候选包已准备好，不表示线上版本已改变。
+在 GitHub Actions 选择 **Prepare site release → Run workflow → main**，填写后端 tag，前端 SHA 可留空以使用所选 `main` 提交，也可填写已通过 CI 的完整 SHA。在测试和上传都成功后记录正式运行的 run ID、main 的 SHA、artifact ID 和下载摘要。PR 预览、分支产物、失败或跳过联合测试的运行都不能上线。工作流没有生产凭据；绿色运行仅表示候选包已准备好，不表示线上版本已改变。
 
 ## 首次接入生产（需要生产管理员）
 

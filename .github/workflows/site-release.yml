@@ -1,5 +1,5 @@
 name: Prepare site release
-run-name: 'Site bundle: Sub2API ${{ inputs.backend }} + Astryx ${{ inputs.frontend }}'
+run-name: 'Site bundle: Sub2API ${{ inputs.backend }} + Astryx ${{ inputs.frontend || github.sha }}'
 on:
   workflow_dispatch:
     inputs:
@@ -8,8 +8,8 @@ on:
         required: true
         type: string
       frontend:
-        description: 'Full Astryx SHA with a successful main push CI'
-        required: true
+        description: 'Full Astryx SHA with successful main push CI (empty uses selected main commit)'
+        required: false
         type: string
 permissions:
   contents: read
@@ -24,7 +24,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.backend }}
-          SHA: ${{ inputs.frontend }}
+          SHA: ${{ inputs.frontend || github.sha }}
         shell: bash
         run: |
           set -euo pipefail
