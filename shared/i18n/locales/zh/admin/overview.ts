@@ -683,6 +683,8 @@ export default {
       // 用户分组配置
       groupConfig: '用户分组配置',
       groupConfigHint: '为用户 {email} 配置专属分组倍率（覆盖分组默认倍率）',
+      groupDefaultRate: '分组默认 {value}x',
+      rateOverride: '倍率',
       exclusiveGroups: '专属分组',
       publicGroups: '公开分组（默认可用）',
       restrictPublicGroups: '限制可访问的公开分组',

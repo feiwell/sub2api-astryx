@@ -679,6 +679,8 @@ export default {
       // User Group Configuration
       groupConfig: 'User Group Configuration',
       groupConfigHint: 'Configure custom rate multipliers for user {email} (overrides group defaults)',
+      groupDefaultRate: 'Group default {value}x',
+      rateOverride: 'Rate',
       exclusiveGroups: 'Exclusive Groups',
       publicGroups: 'Public Groups (Default Available)',
       restrictPublicGroups: 'Restrict accessible public groups',
