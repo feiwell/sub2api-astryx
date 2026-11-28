@@ -13,6 +13,7 @@ import { Switch } from '@astryxdesign/core/Switch'
 import { Text } from '@astryxdesign/core/Text'
 import { TextArea } from '@astryxdesign/core/TextArea'
 import { TextInput } from '@astryxdesign/core/TextInput'
+import { useMediaQuery } from '@astryxdesign/core/hooks'
 import { keysAPI } from '@/api'
 import type { ApiKey, Group, UpdateApiKeyRequest } from '@/types'
 import { formatDateTime } from '@/utils/format'
@@ -150,6 +151,7 @@ export function KeyFormDialog({
 }: KeyFormDialogProps) {
   const { t } = useI18n()
   const isEdit = editKey !== null
+  const isCompact = useMediaQuery('(max-width: 639px)')
 
   const [form, setForm] = useState<KeyForm>(emptyForm)
   const [provider, setProvider] = useState<KeyGroupProvider>('anthropic')
@@ -179,6 +181,12 @@ export function KeyFormDialog({
   const groupSelect = useGroupOptions(formGroups, userGroupRates, isEdit ? editKey.group : null)
   const selectedGroup = groupId === null ? undefined : groupSelect.groupsById.get(String(groupId))
   const selectedPeak = selectedGroup ? groupSelect.peakWindow(selectedGroup) : ''
+
+  const selectProvider = (value: string) => {
+    if (value === activeProvider) return
+    setProvider(value as KeyGroupProvider)
+    patch({ groupId: null })
+  }
 
   const customKeyError = (() => {
     if (!form.useCustomKey || !form.customKey) return ''
@@ -353,29 +361,45 @@ export function KeyFormDialog({
 
                 {!isEdit && (
                   <VStack gap={2} hAlign="stretch">
-                    <Text type="label">{t('keys.providerLabel')}</Text>
-                    <SegmentedControl
-                      label={t('keys.providerLabel')}
-                      layout="fill"
-                      value={activeProvider}
-                      onChange={(value) => {
-                        if (value === activeProvider) return
-                        setProvider(value as KeyGroupProvider)
-                        patch({ groupId: null })
-                      }}
-                    >
-                      {KEY_GROUP_PROVIDERS.map((value) => (
-                        <SegmentedControlItem
-                          key={value}
-                          value={value}
-                          label={t(`keys.providers.${value}`)}
-                          icon={<HStack gap={0.5} vAlign="center">
-                            {KEY_GROUP_PROVIDER_ICONS[value].map(platform => <PlatformMarkIcon key={platform} platform={platform} />)}
-                          </HStack>}
-                          isDisabled={groupsOf(value).length === 0}
-                        />
-                      ))}
-                    </SegmentedControl>
+                    {isCompact ? (
+                      <Selector
+                        label={t('keys.providerLabel')}
+                        value={activeProvider}
+                        onChange={selectProvider}
+                        options={KEY_GROUP_PROVIDERS.map((value) => ({
+                          value,
+                          label: t(`keys.providers.${value}`),
+                          disabled: groupsOf(value).length === 0,
+                        }))}
+                      />
+                    ) : (
+                      <>
+                        <Text type="label">{t('keys.providerLabel')}</Text>
+                        <SegmentedControl
+                          className="key-provider-control"
+                          label={t('keys.providerLabel')}
+                          layout="hug"
+                          value={activeProvider}
+                          onChange={selectProvider}
+                        >
+                          {KEY_GROUP_PROVIDERS.map((value) => (
+                            <SegmentedControlItem
+                              key={value}
+                              value={value}
+                              label={t(`keys.providers.${value}`)}
+                              icon={
+                                <HStack gap={0.5} vAlign="center">
+                                  {KEY_GROUP_PROVIDER_ICONS[value].map((platform) => (
+                                    <PlatformMarkIcon key={platform} platform={platform} />
+                                  ))}
+                                </HStack>
+                              }
+                              isDisabled={groupsOf(value).length === 0}
+                            />
+                          ))}
+                        </SegmentedControl>
+                      </>
+                    )}
                     <Text type="supporting">
                       {groups.length === 0
                         ? t('common.noGroupsAvailable')

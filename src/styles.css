@@ -635,6 +635,11 @@ body {
   color: var(--color-text-error);
 }
 
+/* Provider collections contain multiple marks and must reserve their full width. */
+.key-provider-control .astryx-segmented-control-item > :has([data-platform-mark]) {
+  width: max-content;
+}
+
 /* Keep the selection marker column aligned across group options. */
 [role="option"]:has(.key-group-option) > span:last-child:empty {
   display: inline-flex;

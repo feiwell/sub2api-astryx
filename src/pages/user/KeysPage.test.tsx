@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ApiKey, Group } from '@/types'
 import { KeysPage } from './KeysPage'
 
@@ -145,6 +145,8 @@ async function renderKeys() {
 }
 
 describe('KeysPage', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
   beforeEach(() => {
     api.list.mockResolvedValue({ items: mockApiKeys, total: mockApiKeys.length, page: 1, page_size: 20, pages: 1 })
     api.getDashboardApiKeysUsage.mockResolvedValue({ stats: {} })
@@ -175,6 +177,57 @@ describe('KeysPage', () => {
     await user.click(screen.getByRole('button', { name: 'keys.createKey' }))
     const dialog = await screen.findByRole('dialog', { name: 'keys.createKey' })
     expect(within(dialog).getByRole('button', { name: 'common.create' })).toBeVisible()
+  })
+
+  it('keeps provider marks together and resets the group when switching providers', async () => {
+    const user = userEvent.setup()
+    api.getAvailable.mockResolvedValue([
+      ...mockGroups,
+      { ...mockGroups[0], id: 3, name: 'DeepSeek', platform: 'deepseek' },
+    ])
+    await renderKeys()
+    await user.click(screen.getByRole('button', { name: 'keys.createKey' }))
+    const dialog = await screen.findByRole('dialog', { name: 'keys.createKey' })
+    const providers = within(dialog).getByRole('radiogroup', { name: 'keys.providerLabel' })
+    expect(providers).toHaveClass('key-provider-control')
+    const domestic = within(providers).getByRole('radio', { name: 'keys.providers.domestic' })
+    expect(domestic.querySelectorAll('[data-platform-mark]')).toHaveLength(2)
+    expect(within(providers).getByRole('radio', { name: 'keys.providers.anthropic' })).toHaveAttribute('aria-disabled', 'true')
+    await user.click(within(dialog).getByRole('button', { name: /^keys\.groupLabel/ }))
+    await user.click(await screen.findByRole('option', { name: /^Production/ }))
+    expect(within(dialog).getByText('Production')).toBeVisible()
+    await user.click(domestic)
+    expect(domestic).toHaveAttribute('aria-checked', 'true')
+    expect(within(dialog).queryByText('Production')).not.toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: /^keys\.groupLabel/ }))
+    expect(await screen.findByRole('option', { name: /^DeepSeek/ })).toBeVisible()
+    expect(screen.queryByRole('option', { name: /^Production/ })).not.toBeInTheDocument()
+  })
+
+  it('uses a provider selector on narrow screens with the same group filtering', async () => {
+    const matchMedia = window.matchMedia
+    vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
+      ...matchMedia(query),
+      matches: query === '(max-width: 639px)',
+    })))
+    const user = userEvent.setup()
+    api.getAvailable.mockResolvedValue([
+      ...mockGroups,
+      { ...mockGroups[0], id: 3, name: 'DeepSeek', platform: 'deepseek' },
+    ])
+    await renderKeys()
+    await user.click(screen.getByRole('button', { name: 'keys.createKey' }))
+    const dialog = await screen.findByRole('dialog', { name: 'keys.createKey' })
+    expect(within(dialog).queryByRole('radiogroup', { name: 'keys.providerLabel' })).not.toBeInTheDocument()
+    const provider = within(dialog).getByRole('combobox', { name: 'keys.providerLabel' })
+    expect(provider).toHaveTextContent('keys.providers.openai')
+    await user.click(provider)
+    expect(await screen.findByRole('option', { name: 'keys.providers.anthropic' })).toHaveAttribute('aria-disabled', 'true')
+    await user.click(screen.getByRole('option', { name: 'keys.providers.domestic' }))
+    expect(provider).toHaveTextContent('keys.providers.domestic')
+    await user.click(within(dialog).getByRole('button', { name: /^keys\.groupLabel/ }))
+    expect(await screen.findByRole('option', { name: /^DeepSeek/ })).toBeVisible()
+    expect(screen.queryByRole('option', { name: /^Production/ })).not.toBeInTheDocument()
   })
 
   it('sends the search term with the first page after the debounce', async () => {
