@@ -9,6 +9,7 @@ import { VStack } from '@astryxdesign/core/Stack'
 import { EnvelopeIcon, LockClosedIcon, KeyIcon, GiftIcon } from '@heroicons/react/24/outline'
 import {
   getPublicSettings,
+  sendVerifyCode,
   buildOAuthLoginStartURL,
   startOAuthLogin,
   validatePromoCode,
@@ -237,7 +238,7 @@ export function RegisterPage() {
 
   const handleRegister = async () => {
     setErrorMessage('')
-    if (!validate()) return
+    if (authDisabled || !validate()) return
     if (promoCodeEnabled && promoCode.trim()) {
       if (promoValidating) {
         setErrorMessage(t('auth.promoCodeValidating'))
@@ -268,11 +269,30 @@ export function RegisterPage() {
       if (promoCodeEnabled && promoCode.trim()) {
         payload.promo_code = promoCode.trim()
       }
+      if (settings?.email_verify_enabled) {
+        const response = await sendVerifyCode({
+          email: payload.email,
+          turnstile_token: payload.turnstile_token,
+          tencent_captcha_ticket: payload.tencent_captcha_ticket,
+          tencent_captcha_randstr: payload.tencent_captcha_randstr,
+        })
+        sessionStorage.setItem('pending_register_data', JSON.stringify({
+          email: payload.email,
+          password: payload.password,
+          invitation_code: payload.invitation_code,
+          promo_code: payload.promo_code,
+          redirectTo,
+          code_sent_at: Date.now(),
+          countdown: response.countdown,
+        }))
+        navigate('/email-verify')
+        return
+      }
       await register(payload)
-      toast.success(t('auth.registerSuccess'))
+      toast.success(t('auth.accountCreatedSuccess', { siteName }))
       navigate(redirectTo, { replace: true })
     } catch (error) {
-      const message = extractI18nErrorMessage(error, t, 'auth.errors', t('auth.registerFailed'))
+      const message = extractI18nErrorMessage(error, t, 'auth.errors', t('auth.registrationFailed'))
       setErrorMessage(message)
       toast.error(message)
     } finally {
@@ -310,14 +330,14 @@ export function RegisterPage() {
 
   if (!registrationEnabled && settingsLoaded) {
     return (
-      <AuthLayout title="Authentication" subtitle={t('auth.signUpToStart', { siteName })}>
+      <AuthLayout title={t('auth.signUp')} subtitle={t('auth.signUpToStart', { siteName })}>
         <Banner status="warning" title={t('auth.registrationDisabled')} />
       </AuthLayout>
     )
   }
 
   return (
-    <AuthLayout title="Authentication" subtitle={t('auth.signUpToStart', { siteName })}
+    <AuthLayout title={t('auth.signUp')} subtitle={t('auth.signUpToStart', { siteName })}
       footer={
         <Text type="supporting" color="secondary">
           {t('auth.alreadyHaveAccount')}{' '}
