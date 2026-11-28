@@ -1,6 +1,7 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { UpdateSettingsTab } from './UpdateSettingsTab'
+import releaseNotes from '../../../../public/release-notes.json'
 
 const language = vi.hoisted(() => ({ locale: 'en' }))
 const api = vi.hoisted(() => ({ status: vi.fn(), apply: vi.fn(), checkUpdates: vi.fn() }))
@@ -25,7 +26,22 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers())
 
 describe('frontend update panel', () => {
-  it.each(['en', 'zh'])('shows release notes in %s and toggles them separately', async (locale) => {
+  it('includes the account and model changes in the shipped preview in both languages', async () => {
+    api.status.mockResolvedValue({ ...status, release_notes: {
+      sha: 'a'.repeat(40), state: 'available', releases: releaseNotes.releases,
+    } })
+    const { rerender } = render(<UpdateSettingsTab />)
+    fireEvent.click(await screen.findByRole('button', { name: 'admin.settings.update.uiPreviewNotes' }))
+    expect(screen.getByText(releaseNotes.releases[0]!.title.en)).toBeVisible()
+    expect(screen.getByText(/Fetch upstream models when previewing/)).toBeVisible()
+    language.locale = 'zh'
+    rerender(<UpdateSettingsTab />)
+    expect(screen.getByText(releaseNotes.releases[0]!.title.zh)).toBeVisible()
+    expect(screen.getByText(/账号管理新增上游模型拉取/)).toBeVisible()
+    expect(api.apply).not.toHaveBeenCalled()
+  })
+
+  it.each(['en', 'zh'])('previews release notes in %s without starting an update', async (locale) => {
     language.locale = locale
     api.status.mockResolvedValue({ ...status, release_notes: {
       sha: 'a'.repeat(40), state: 'available', releases: [{ date: '2026-11-28',
@@ -35,30 +51,34 @@ describe('frontend update panel', () => {
     } })
     render(<UpdateSettingsTab />)
     const title = locale === 'en' ? 'Frontend improvements' : '前端改进'
-    expect(await screen.findByText(title)).toBeVisible()
-    expect(screen.getAllByRole('listitem')).toHaveLength(locale === 'en' ? 2 : 1)
+    const preview = await screen.findByRole('button', { name: 'admin.settings.update.uiPreviewNotes' })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    fireEvent.click(preview)
+    const dialog = await screen.findByRole('dialog', { name: 'admin.settings.update.uiPreviewNotes' })
+    expect(within(dialog).getByText(title)).toBeVisible()
+    expect(within(dialog).getAllByRole('listitem')).toHaveLength(locale === 'en' ? 2 : 1)
     if (locale === 'en') {
-      expect(screen.getByText('• <script>alert(1)</script>')).toBeVisible()
+      expect(within(dialog).getByText('<script>alert(1)</script>')).toBeVisible()
       expect(document.querySelector('script')).toBeNull()
     }
-    const toggle = screen.getByRole('button', { name: 'admin.settings.update.hideNotes' })
-    fireEvent.click(toggle)
-    expect(screen.queryByText(title)).not.toBeInTheDocument()
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    fireEvent.click(toggle)
-    expect(screen.getByText(title)).toBeVisible()
+    expect(api.apply).not.toHaveBeenCalled()
+    fireEvent(dialog, new Event('cancel', { bubbles: false, cancelable: true }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    fireEvent.click(preview)
+    expect(await screen.findByRole('dialog')).toBeVisible()
   })
 
   it.each(['missing', 'unavailable', undefined])('handles %s notes while allowing updates', async (state) => {
     api.status.mockResolvedValue({ ...status, release_notes: state ? { sha: 'new', state, releases: [] } : undefined })
     render(<UpdateSettingsTab />)
+    fireEvent.click(await screen.findByRole('button', { name: 'admin.settings.update.uiPreviewNotes' }))
     expect(await screen.findByText(state === 'unavailable'
       ? 'admin.settings.update.uiNotesUnavailable' : 'admin.settings.update.noNotes')).toBeVisible()
     expect(screen.getByRole('button', { name: 'admin.settings.update.uiApply' }))
       .not.toHaveAttribute('aria-disabled', 'true')
   })
 
-  it('keeps installed release notes visible when the frontend is up to date', async () => {
+  it('offers installed update history when the frontend is up to date', async () => {
     api.status.mockResolvedValue({ ...status, current_sha: 'new', has_update: false, release_notes: {
       sha: 'new', state: 'available', releases: [{ date: '2026-11-28',
         title: { en: 'Installed release', zh: '已安装版本' },
@@ -66,7 +86,9 @@ describe('frontend update panel', () => {
       }],
     } })
     render(<UpdateSettingsTab />)
+    fireEvent.click(await screen.findByRole('button', { name: 'admin.settings.update.uiViewNotes' }))
     expect(await screen.findByText('Installed release')).toBeVisible()
+    expect(screen.getByText('admin.settings.update.uiInstalledNotesHint')).toBeVisible()
     expect(screen.queryByRole('button', { name: 'admin.settings.update.uiApply' })).not.toBeInTheDocument()
   })
 

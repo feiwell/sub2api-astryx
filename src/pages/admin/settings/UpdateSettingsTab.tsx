@@ -6,12 +6,14 @@ import { Button } from '@astryxdesign/core/Button'
 import { Spinner } from '@astryxdesign/core/Spinner'
 import { Badge } from '@astryxdesign/core/Badge'
 import { Icon } from '@astryxdesign/core/Icon'
+import { FrontendReleaseNotesDialog } from './FrontendReleaseNotesDialog'
 import {
   RefreshCw,
   Download,
   RotateCcw,
   AlertTriangle,
   ServerCog,
+  FileText,
 } from 'lucide-react'
 import {
   systemAPI,
@@ -45,7 +47,7 @@ async function waitForService(timeoutMessage: string): Promise<void> {
  * effect after the service restarts).
  */
 export function UpdateSettingsTab() {
-  const { t, locale } = useI18n()
+  const { t } = useI18n()
   const [info, setInfo] = useState<VersionInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
@@ -62,7 +64,7 @@ export function UpdateSettingsTab() {
   const [uiLoading, setUiLoading] = useState(true)
   const [uiApplying, setUiApplying] = useState(false)
   const [uiError, setUiError] = useState('')
-  const [showUiNotes, setShowUiNotes] = useState(true)
+  const [showUiNotes, setShowUiNotes] = useState(false)
   const uiBusy = uiApplying || uiStatus?.job.state === 'running'
 
   const loadUi = useCallback(async () => {
@@ -351,6 +353,17 @@ export function UpdateSettingsTab() {
                 isDisabled={uiLoading || uiBusy}
                 onClick={() => void loadUi()}
               />
+              {uiStatus && (
+                <Button
+                  variant="secondary"
+                  icon={<Icon icon={FileText} />}
+                  label={t(uiStatus.has_update
+                    ? 'admin.settings.update.uiPreviewNotes'
+                    : 'admin.settings.update.uiViewNotes')}
+                  aria-haspopup="dialog"
+                  onClick={() => setShowUiNotes(true)}
+                />
+              )}
               {uiStatus?.has_update && (
                 <Button
                   variant="primary"
@@ -361,52 +374,6 @@ export function UpdateSettingsTab() {
                 />
               )}
             </HStack>
-
-            {uiStatus && (
-              <VStack gap={3} hAlign="stretch">
-                <HStack gap={2} vAlign="center" wrap="wrap">
-                  <Text weight="semibold">{t('admin.settings.update.uiNotesTitle')}</Text>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    label={t(showUiNotes ? 'admin.settings.update.hideNotes' : 'admin.settings.update.showNotes')}
-                    aria-expanded={showUiNotes}
-                    aria-controls="frontend-release-notes"
-                    onClick={() => setShowUiNotes((visible) => !visible)}
-                  />
-                </HStack>
-                {showUiNotes && (
-                  <VStack id="frontend-release-notes" gap={3} hAlign="stretch">
-                    {uiStatus.release_notes?.sha && (
-                      <Text size="sm" color="secondary">
-                        {t('admin.settings.update.uiNotesRevision', { sha: uiStatus.release_notes.sha.slice(0, 7) })}
-                      </Text>
-                    )}
-                    {uiStatus.release_notes?.state === 'available' ? (
-                      uiStatus.release_notes.releases.map((release, index) => (
-                        <VStack key={`${release.date}-${index}`} gap={2} hAlign="stretch">
-                          <HStack gap={2} vAlign="center" wrap="wrap">
-                            <Text weight="semibold">{release.title[locale]}</Text>
-                            <Text size="sm" color="secondary">{release.date}</Text>
-                          </HStack>
-                          <VStack gap={2} hAlign="stretch" role="list">
-                            {release.changes[locale].map((change, changeIndex) => (
-                              <Text key={changeIndex} size="sm" role="listitem">{`• ${change}`}</Text>
-                            ))}
-                          </VStack>
-                        </VStack>
-                      ))
-                    ) : (
-                      <Text size="sm" color="secondary">
-                        {t(uiStatus.release_notes?.state === 'unavailable'
-                          ? 'admin.settings.update.uiNotesUnavailable'
-                          : 'admin.settings.update.noNotes')}
-                      </Text>
-                    )}
-                  </VStack>
-                )}
-              </VStack>
-            )}
 
             {uiError && <Text size="sm" role="alert">{uiError}</Text>}
             {uiStatus?.job.state === 'failed' && (
@@ -424,6 +391,14 @@ export function UpdateSettingsTab() {
             )}
           </VStack>
         </Card>
+      )}
+
+      {uiStatus && (
+        <FrontendReleaseNotesDialog
+          isOpen={showUiNotes}
+          onOpenChange={setShowUiNotes}
+          status={uiStatus}
+        />
       )}
 
       {info?.release_info && (

@@ -4,6 +4,31 @@
     {
       "date": "2026-11-28",
       "title": {
+        "zh": "账号管理补齐、上游模型同步与更新预览",
+        "en": "Account controls, upstream model sync and update previews"
+      },
+      "changes": {
+        "zh": [
+          "在线更新页面新增“预览更新内容”入口，可在弹窗中查看目标版本的功能变化、修复记录和对应提交，更新后仍可查看当前版本记录。",
+          "账号管理新增上游模型拉取，支持新建 API Key 账号预览和已保存账号同步，自动去重模型白名单并保留已有映射。使用代理或自定义请求头时需先保存账号。",
+          "账号表单按基础信息、连接凭据、模型请求、分组调度、额度重置和高级设置分区，改善桌面与手机端的排版。",
+          "账号列表补齐运行状态、调度评分与上游费率展示，支持服务端排序、行内调整优先级和恢复代理设置。",
+          "补充计费分组预览与同步、请求头身份变量校验、Ollama 云用量会话和平台模型预设等账号配置。",
+          "修复极低用量和未知额度的显示问题，补全模型配置、额度校验及中英文文案。"
+        ],
+        "en": [
+          "Added an update preview dialog showing the target frontend version’s feature changes, fixes and source commit. Installed update history remains available after updating.",
+          "Fetch upstream models when previewing a new API key account or syncing a saved account. Model whitelist entries are deduplicated and existing mappings are preserved. Save accounts using proxies or custom headers before syncing.",
+          "Reorganized account forms into basic information, connection credentials, model requests, group scheduling, quota resets and advanced settings, with improved desktop and mobile layouts.",
+          "Expanded account lists with operational status, scheduler scores and upstream rates, server-side sorting, inline priority editing and proxy setting recovery.",
+          "Added billing group previews and synchronization, request header identity variable validation, Ollama cloud usage sessions and platform model presets.",
+          "Fixed very low usage and unknown quota displays, and completed model configuration, quota validation and Chinese and English copy."
+        ]
+      }
+    },
+    {
+      "date": "2026-11-28",
+      "title": {
         "zh": "前端在线更新与注册、密钥体验改进",
         "en": "Frontend updates, registration and API key improvements"
       },
