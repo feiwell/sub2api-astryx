@@ -44,7 +44,7 @@ class Updater:
         self.releases_dir.mkdir(parents=True, exist_ok=True)
         self.lock = threading.RLock()
         self.latest_sha = None
-        self.checked_at = 0
+        self.checked_at = None
         self.unreachable = False
         self.job_file = self.state_dir / "job.json"
         self.log_file = self.state_dir / "build.log"
@@ -70,7 +70,7 @@ class Updater:
 
     def refresh_latest(self, force=False):
         with self.lock:
-            if not force and time.monotonic() - self.checked_at < 60:
+            if not force and self.checked_at is not None and time.monotonic() - self.checked_at < 60:
                 return
             try:
                 result = subprocess.run(
@@ -232,7 +232,7 @@ class Updater:
                 self.set_job(step="publish")
                 self.activate(source / "dist", sha)
                 self.set_job(state="done", step="done", finished_at=int(time.time()), log="")
-                self.checked_at = 0
+                self.checked_at = None
         except Exception as error:
             tail = ""
             if self.log_file.exists():

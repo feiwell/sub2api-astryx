@@ -197,7 +197,8 @@ class ReleaseTests(unittest.TestCase):
 
     def test_github_failure_preserves_last_known_revision(self):
         result = subprocess.CompletedProcess([], 0, SHA + "\trefs/heads/main\n", "")
-        with patch.object(module.subprocess, "run", return_value=result):
+        with patch.object(module.time, "monotonic", return_value=10), \
+                patch.object(module.subprocess, "run", return_value=result):
             self.assertTrue(self.updater.status()["has_update"])
         with patch.object(module.subprocess, "run", side_effect=subprocess.TimeoutExpired("git", 20)):
             status = self.updater.status(force=True)
