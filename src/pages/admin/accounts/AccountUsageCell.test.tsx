@@ -8,9 +8,12 @@ import { Table } from '@astryxdesign/core/Table'
 import { LayerProvider } from '@astryxdesign/core/Layer'
 import type { AccountListItem, AccountUsageInfo, UsageProgress } from '@/types'
 import { setLocale, t } from '~/i18n'
+import { formatDateTime } from '@/utils/format'
 import { ReauthAccountDialog } from './ReauthAccountDialog'
 import { AdminAccountsPage } from '../AdminAccountsPage'
 import { accountShowsInlineTodayStats, accountSupportsBatchUsage, computeLocalQuotaBars, formatUtilization, resetCountdown, usageVariant } from './usageRules'
+import { ProxyCell, PriorityCell } from './AccountOperationalCells'
+import { OllamaSettings } from './OllamaSettings'
 import { AccountUsageStore } from './useAccountUsageRow'
 import { AccountUsageCell } from './AccountUsageCell'
 import { AccountTodayStats, AccountCapacity } from './AccountUsageColumns'
@@ -20,7 +23,7 @@ import { ClaudeCredits, OpenAICredits } from './QuotaCreditActions'
 import { copyToClipboard } from '~/lib/clipboard'
 vi.mock('~/lib/clipboard', () => ({ copyToClipboard: vi.fn() }))
 
-const api = vi.hoisted(() => ({ list: vi.fn(), getById: vi.fn(), exchangeCode: vi.fn(), generateAuthUrl: vi.fn(), applyOAuthCredentials: vi.fn(), update: vi.fn(), batchClearError: vi.fn(), getBatchUsage: vi.fn(), getBatchTodayStats: vi.fn(), getUsage: vi.fn(),
+const api = vi.hoisted(() => ({ getOllamaCloudUsage:vi.fn(), saveOllamaCloudUsageSession:vi.fn(), revertProxyFallback:vi.fn(), list: vi.fn(), getById: vi.fn(), exchangeCode: vi.fn(), generateAuthUrl: vi.fn(), applyOAuthCredentials: vi.fn(), update: vi.fn(), batchClearError: vi.fn(), getBatchUsage: vi.fn(), getBatchTodayStats: vi.fn(), getUsage: vi.fn(),
   refreshOpenAIQuota: vi.fn(), resetOpenAIQuota: vi.fn(), queryGrok: vi.fn(), queryQuota: vi.fn(), queryBalance: vi.fn(), refreshOllamaCloudUsage: vi.fn(), refreshOpenCodeGoUsage: vi.fn() }))
 vi.mock('~/lib/api/admin', () => ({ adminAPI: { accounts: api, settings: { getSettings: async () => ({}) }, groups: { getAll: async () => [] }, proxies: { getAll: async () => [] }, grok: { queryQuota: api.queryGrok }, cnProviders: { queryQuota: api.queryQuota, queryBalance: api.queryBalance } } }))
 const credits = vi.hoisted(() => ({ getClaudeResetCredits: vi.fn(), redeemClaudeResetCredit: vi.fn() }))
@@ -224,12 +227,14 @@ describe('account-specific windows and actions', () => {
   it('uses model quotas as a fallback and offers verification and reauthorization in the correct states', () => {
     const item = account(20, 'antigravity', 'oauth', { extra: { load_code_assist: { paidTier: { id: 'g1-pro-tier' }, ineligibleTiers: [{}] } } })
     const quotas = { 'gemini-3-pro-low': { utilization: 25, reset_time: '' }, 'gemini-3-pro-high': { utilization: 84, reset_time: '' },
-      'gemini-3-flash': { utilization: 32, reset_time: '' }, 'gemini-3-pro-image': { utilization: 6, reset_time: '' }, 'claude-opus-4-6': { utilization: 70, reset_time: '' } }
+      'gemini-3-flash': { utilization: 0.25, reset_time: '' }, 'gemini-3-pro-image': { utilization: 0.004, reset_time: '' }, 'claude-opus-4-6': { utilization: 70, reset_time: '' } }
     const cell = render(wrap(<AntigravityUsage account={item} usage={usage({ antigravity_quota: quotas })} />))
     const scope = within(cell.container)
-    for (const [name, value] of [['gemini3Pro', 84], ['gemini3Flash', 32], ['gemini3Image', 6], ['claude', 70]] as const) {
+    for (const [name, value] of [['gemini3Pro', 84], ['gemini3Flash', 0.25], ['gemini3Image', 0.004], ['claude', 70]] as const) {
       bar(scope, t(`admin.accounts.usageWindow.${name}`), value)
     }
+    expect(scope.getByText('0.25%')).toBeVisible()
+    expect(scope.getByText('<0.01%')).toBeVisible()
     expect(scope.getByText(t('admin.accounts.tier.pro'))).toBeVisible()
     expect(scope.getByText(t('admin.accounts.ineligibleWarning'))).toBeVisible()
     const url = 'https://verify.example.test/account'
@@ -493,12 +498,15 @@ describe('account administration', () => {
     const item = account(12, 'openai', 'apikey', { status: 'error' })
     api.getById.mockResolvedValue({ ...item, credentials: { base_url: 'https://existing.test' } })
     renderPage([item])
-    await userEvent.click((await row(12)).getByRole('button', { name: t('common.edit') }))
+    fireEvent.click((await row(12)).getByRole('button', { name: t('common.edit'), hidden: true }))
     await waitFor(() => expect(api.getById).toHaveBeenCalledWith(12))
     const form = within(await screen.findByRole('dialog'))
-    const note = await form.findByRole('textbox', { name: t('admin.accounts.notes') })
+    const trigger = form.getByText(t('astryx.accountSectionAdvanced')).closest('button')!
+    fireEvent.click(trigger)
+    const noteLabel = form.getByText(t('admin.accounts.notes'), { selector: 'label' }) as HTMLLabelElement
+    const note = noteLabel.control!
     fireEvent.change(note, { target: { value: 'review later' } })
-    fireEvent.click(form.getByRole('button', { name: t('common.save') }))
+    fireEvent.click(form.getByText(t('common.save')).closest('button')!)
     await waitFor(() => expect(api.update).toHaveBeenCalledWith(12, { notes: 'review later' }))
   }, 20000)
 
@@ -522,4 +530,48 @@ describe('account administration', () => {
     await waitFor(() => expect(api.batchClearError).toHaveBeenCalledWith([21, 29]))
     await screen.findAllByText(t('admin.accounts.bulkActions.selected', { count: 1 }))
   }, 20000)
+})
+
+it('shows runtime blocks on an active account and changes sort on the server', async () => {
+  const future = new Date(Date.now() + 3_600_000).toISOString()
+  renderPage([account(77,'antigravity','oauth',{rate_limit_reset_at:future,overload_until:future,extra:{model_rate_limits:{AICredits:{rate_limited_at:future,rate_limit_reset_at:future}}}})])
+  const a = await row(77)
+  expect(a.getByText(t('admin.accounts.status.overloadedUntil',{time:formatDateTime(future)}))).toBeVisible()
+  expect(a.getByText(t('admin.accounts.status.creditsExhaustedUntil',{time:formatDateTime(future)}))).toBeVisible()
+  expect(a.queryByText(t('admin.accounts.status.active'))).toBeNull()
+  fireEvent.click(screen.getByText(t('admin.accounts.columns.priority'), { selector:'th *' }))
+  await waitFor(() => expect(api.list).toHaveBeenCalledWith(1,20,expect.objectContaining({sort_by:'priority',sort_order:'asc'}),expect.anything()))
+})
+
+
+it('saves only the inline priority change and restores the fallback proxy on the same account', async () => {
+  const item = account(71,'anthropic','oauth',{priority:7,proxy_fallback_origin_id:42,proxy_fallback_origin_name:'Original'})
+  const reload = vi.fn()
+  render(wrap(<><PriorityCell account={item} reload={reload} /><ProxyCell account={item} reload={reload} /></>))
+  fireEvent.click(screen.getByRole('button',{name:'7'}))
+  const input = screen.getByLabelText(t('admin.accounts.priorityQuick.editHint'))
+  const user = userEvent.setup()
+  await user.clear(input)
+  await user.type(input,'9')
+  await user.click(screen.getByRole('button',{name:t('common.save')}))
+  await waitFor(() => expect(api.update).toHaveBeenCalledWith(71,{priority:9}))
+  fireEvent.click(screen.getByRole('button',{name:t('admin.accounts.revertProxy')}))
+  await waitFor(() => expect(api.revertProxyFallback).toHaveBeenCalledWith(71))
+  expect(reload).toHaveBeenCalledTimes(2)
+})
+
+it('uses the dedicated Ollama session endpoint and clears the write-only input after saving', async () => {
+  const initial = {account_id:81,eligible:true,configured:false,encryption_key_configured:true,auto_refresh_enabled:false}
+  api.getOllamaCloudUsage.mockResolvedValue(initial)
+  api.saveOllamaCloudUsageSession.mockResolvedValue({...initial,configured:true})
+  const updated = vi.fn()
+  render(wrap(<OllamaSettings id={81} initial={initial} onUpdated={updated} />))
+  const input = screen.getByLabelText(t('admin.accounts.ollamaCloud.sessionLabel'))
+  expect(input).toHaveAttribute('type','password')
+  fireEvent.change(input,{target:{value:'test-session'}})
+  fireEvent.click(screen.getByRole('button',{name:t('common.save')}))
+  await waitFor(() => expect(updated).toHaveBeenCalledOnce())
+  expect(api.saveOllamaCloudUsageSession).toHaveBeenCalledWith(81,'test-session')
+  expect(input).toHaveValue('')
+  expect(api.update).not.toHaveBeenCalled()
 })

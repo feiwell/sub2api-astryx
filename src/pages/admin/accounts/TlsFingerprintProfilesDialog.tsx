@@ -9,6 +9,7 @@ import { EmptyState } from '@astryxdesign/core/EmptyState'
 import { Icon } from '@astryxdesign/core/Icon'
 import { IconButton } from '@astryxdesign/core/IconButton'
 import { Layout, LayoutContent, LayoutFooter } from '@astryxdesign/core/Layout'
+import { Link } from '@astryxdesign/core/Link'
 import { Spinner } from '@astryxdesign/core/Spinner'
 import { HStack, StackItem, VStack } from '@astryxdesign/core/Stack'
 import { Switch } from '@astryxdesign/core/Switch'
@@ -71,6 +72,7 @@ const NUMERIC_YAML_KEYS = [
 ] as const
 
 const MONO = { fontFamily: 'var(--font-family-code)' }
+const COLLECTOR_URL = 'https://tls.sub2api.org'
 
 // Parse a comma-separated string of numbers supporting both hex (0x...) and decimal
 const parseNumericArray = (input: string): number[] => {
@@ -451,7 +453,10 @@ export function TlsFingerprintProfilesDialog({ isOpen, onClose }: TlsFingerprint
             onClick={() => parseYamlInput(yamlInput)}
           />
           <Text type="supporting">
-            {t('admin.tlsFingerprintProfiles.form.pasteYamlHint')}
+            {t('admin.tlsFingerprintProfiles.form.pasteYamlHint')}{' '}
+            <Link href={COLLECTOR_URL} isExternalLink hasUnderline type="inherit">
+              {t('admin.tlsFingerprintProfiles.form.openCollector')}
+            </Link>
           </Text>
         </HStack>
       </VStack>

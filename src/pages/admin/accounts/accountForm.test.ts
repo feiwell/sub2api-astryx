@@ -44,3 +44,35 @@ describe('account form payloads', () => {
       .toMatchObject({ auth_mode: 'apikey', api_key: 'mock', tier_id: 'vertex' })
   })
 })
+
+describe('single-account operational settings', () => {
+  it('clears expiry and load factor using the API sentinels, preserves zero billing and sends only changes', () => {
+    const a = { ...stored, expires_at: 1893456789, auto_pause_on_expired: true, load_factor: 6, rate_multiplier: 2 }
+    const form = initialForm(a)
+    expect(buildAccountRequest(form,a,null,t).update).toEqual({})
+    expect(buildAccountRequest({...form, expires:'', autoPause:false, loadFactor:null, rate:0},a,null,t).update)
+      .toEqual({ expires_at:0, auto_pause_on_expired:false, load_factor:0, rate_multiplier:0 })
+  })
+  it('updates image tiers without discarding unrelated extra, and removes the restriction when all tiers return', () => {
+    const a = { ...stored, extra: { retained:true, openai_image_size_tiers:['1K'] } }
+    expect(buildAccountRequest({...initialForm(a),tiers:['1K','2K']},a,null,t).update?.extra).toEqual({retained:true,openai_image_size_tiers:['1K','2K']})
+    expect(buildAccountRequest({...initialForm(a),tiers:['1K','2K','4K']},a,null,t).update?.extra).toEqual({retained:true})
+  })
+  it('saves header overrides and whitelist alongside existing aliases; rejects conflicting model and header rows', () => {
+    const form = {...initialForm(stored), whitelist:['exact'], headerEnabled:true, headerRows:[{key:1,name:'X-Client',value:'abc'}]}
+    expect(buildAccountRequest(form,stored,null,t).update?.credentials).toEqual({...stored.credentials,model_mapping:{exact:'exact',old:'new'},header_override_enabled:true,header_overrides:{'x-client':'abc'}})
+    expect(() => buildAccountRequest({...form,whitelist:['old']},stored,null,t)).toThrow()
+    expect(() => buildAccountRequest({...form,headerRows:[...form.headerRows, {...form.headerRows[0],key:2}]},stored,null,t)).toThrow()
+  })
+  it('keeps billing sync managed by the probe, and preserves unrelated fields when enabling overages', () => {
+    const f = {...initialForm(stored), probe:true,syncRate:true,rate:3}
+    expect(buildAccountRequest(f,stored,null,t).update).toEqual({upstream_billing_probe_enabled:true,upstream_billing_rate_sync_enabled:true})
+    const a = {...stored,platform:'antigravity'}
+    expect(buildAccountRequest({...initialForm(a),overages:true},a,null,t).update).toEqual({extra:{...stored.extra,allow_overages:true}})
+  })
+  it('persists primary and alternate protocols for OpenCode Go without replacing custom endpoints', () => {
+    const a = {...stored,platform:'opencode_go',credentials:{account_mode:'go',api_protocol:'adaptive',api_base_urls:{chat_completions:'https://custom.example'},base_url:'https://custom.example'}}
+    const f = initialForm(a)
+    expect(buildAccountRequest({...f,rules:[{pattern:'model-*',protocol:'anthropic',extraProtocols:['chat_completions']}]},a,null,t).update?.credentials).toEqual({...a.credentials,protocol_rules:[{pattern:'model-*',protocol:'anthropic',protocols:['anthropic','chat_completions']}]})
+  })
+})

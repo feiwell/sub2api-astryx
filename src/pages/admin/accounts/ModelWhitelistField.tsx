@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { MultiSelector } from '@astryxdesign/core/MultiSelector'
 import { Button } from '@astryxdesign/core/Button'
 import { IconButton } from '@astryxdesign/core/IconButton'
@@ -18,21 +18,31 @@ interface ModelWhitelistFieldProps {
   /** Current mapping rows, used to reject a custom model that is already mapped elsewhere. */
   modelMappings: { from: string; to: string }[]
   platforms: string[]
+  syncAction?: ReactNode
   isDisabled?: boolean
 }
 
-/**
- * Model whitelist picker (port of ModelWhitelistSelector.vue as used by the
- * bulk editor, which has no single account to sync upstream models from):
- * searchable model list limited to the target platforms, removable chips,
- * "fill related", "clear all" and a custom model entry.
- */
-export function ModelWhitelistField({ value, onChange, modelMappings, platforms, isDisabled }: ModelWhitelistFieldProps) {
+/** Remote discovery is supplied only by the single-account form. */
+export function ModelWhitelistField({
+  value,
+  onChange,
+  modelMappings,
+  platforms,
+  isDisabled,
+  syncAction,
+}: ModelWhitelistFieldProps) {
   const { t } = useI18n()
   const [customModel, setCustomModel] = useState('')
 
   const normalizedPlatforms = useMemo(
-    () => Array.from(new Set(platforms.map((platform) => platform?.trim()).filter((p): p is string => Boolean(p)))),
+    () =>
+      Array.from(
+        new Set(
+          platforms
+            .map((platform) => platform?.trim())
+            .filter((p): p is string => Boolean(p)),
+        ),
+      ),
     [platforms],
   )
 
@@ -47,7 +57,9 @@ export function ModelWhitelistField({ value, onChange, modelMappings, platforms,
     }
     // Custom models stay listed so their checkbox reflects the selection
     const known = new Set(available.map((model) => model.value))
-    const custom = value.filter((model) => !known.has(model)).map((model) => ({ value: model, label: model }))
+    const custom = value
+      .filter((model) => !known.has(model))
+      .map((model) => ({ value: model, label: model }))
     return [...available, ...custom].map((model) => ({
       value: model.value,
       label: model.label,
@@ -71,10 +83,18 @@ export function ModelWhitelistField({ value, onChange, modelMappings, platforms,
       return
     }
     const conflict = modelMappings.find(
-      (mapping) => mapping.from.trim() === model && mapping.to.trim() && mapping.to.trim() !== model,
+      (mapping) =>
+        mapping.from.trim() === model &&
+        mapping.to.trim() &&
+        mapping.to.trim() !== model,
     )
     if (conflict) {
-      toast.warning(t('admin.accounts.modelMappingConflict', { from: model, to: conflict.to.trim() }))
+      toast.warning(
+        t('admin.accounts.modelMappingConflict', {
+          from: model,
+          to: conflict.to.trim(),
+        }),
+      )
       return
     }
     onChange([...value, model])
@@ -93,6 +113,22 @@ export function ModelWhitelistField({ value, onChange, modelMappings, platforms,
 
   return (
     <VStack gap={3} hAlign="stretch">
+      <HStack gap={2} wrap="wrap">
+        {syncAction}
+        <Button
+          label={t('astryx.accountFillPresetModels')}
+          size="sm"
+          isDisabled={isDisabled}
+          onClick={fillRelated}
+        />
+        <Button
+          label={t('admin.accounts.clearAllModels')}
+          variant="ghost"
+          size="sm"
+          isDisabled={isDisabled || value.length === 0}
+          onClick={() => onChange([])}
+        />
+      </HStack>
       <MultiSelector
         label={t('admin.accounts.modelWhitelist')}
         isLabelHidden
@@ -103,7 +139,9 @@ export function ModelWhitelistField({ value, onChange, modelMappings, platforms,
         searchPlaceholder={t('admin.accounts.searchModels')}
         emptySearchText={t('admin.accounts.noMatchingModels')}
         placeholder={t('admin.accounts.modelCount', { count: 0 })}
-        formatValue={(items) => t('admin.accounts.modelCount', { count: items.length })}
+        formatValue={(items) =>
+          t('admin.accounts.modelCount', { count: items.length })
+        }
         isDisabled={isDisabled}
       />
       {value.length > 0 && (
@@ -119,10 +157,6 @@ export function ModelWhitelistField({ value, onChange, modelMappings, platforms,
           ))}
         </HStack>
       )}
-      <HStack gap={2} wrap="wrap">
-        <Button label={t('admin.accounts.fillRelatedModels')} size="sm" isDisabled={isDisabled} onClick={fillRelated} />
-        <Button label={t('admin.accounts.clearAllModels')} size="sm" isDisabled={isDisabled} onClick={() => onChange([])} />
-      </HStack>
       <HStack gap={2} vAlign="end">
         <StackItem size="fill">
           <TextInput
@@ -134,7 +168,11 @@ export function ModelWhitelistField({ value, onChange, modelMappings, platforms,
             isDisabled={isDisabled}
           />
         </StackItem>
-        <Button label={t('admin.accounts.addModel')} isDisabled={isDisabled} onClick={addCustom} />
+        <Button
+          label={t('admin.accounts.addModel')}
+          isDisabled={isDisabled}
+          onClick={addCustom}
+        />
       </HStack>
     </VStack>
   )

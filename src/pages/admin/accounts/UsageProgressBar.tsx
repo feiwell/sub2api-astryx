@@ -28,6 +28,7 @@ export function UsageStats({ stats, estimatedTotalCost }: { stats: WindowStats; 
 interface UsageProgressBarProps {
   label: string
   utilization: number
+  precisePercent?: boolean
   resetsAt?: string | null
   windowStats?: WindowStats | null
   estimatedTotalCost?: number
@@ -35,7 +36,7 @@ interface UsageProgressBarProps {
   hint?: string
 }
 
-export function UsageProgressBar({ label, utilization, resetsAt, windowStats, estimatedTotalCost, hint, showNowWhenIdle }: UsageProgressBarProps) {
+export function UsageProgressBar({ label, utilization, precisePercent, resetsAt, windowStats, estimatedTotalCost, hint, showNowWhenIdle }: UsageProgressBarProps) {
   const { t } = useI18n()
   const now = useMinuteClock()
   const countdown = resetCountdown(resetsAt, now, utilization, showNowWhenIdle)
@@ -45,7 +46,7 @@ export function UsageProgressBar({ label, utilization, resetsAt, windowStats, es
   if (countdown.kind === 'remaining') resetText = formatRemaining(countdown)
   const bar = (
     <ProgressBar label={label} value={Number.isFinite(utilization) ? Math.max(0, Math.min(100, utilization)) : 0}
-      hasValueLabel formatValueLabel={() => formatUtilization(utilization)} variant={usageVariant(utilization)} />
+      hasValueLabel formatValueLabel={() => formatUtilization(utilization, precisePercent)} variant={usageVariant(utilization)} />
   )
   return (
     <VStack gap={0.5} hAlign="stretch">

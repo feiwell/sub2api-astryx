@@ -85,7 +85,7 @@ export function AntigravityUsage({ account, usage }: { account: AccountListItem;
     const quotas = models.flatMap(model => usage?.antigravity_quota?.[model] ?? [])
     if (!quotas.length) return null
     const resets = quotas.map(q => q.reset_time).filter(Boolean).sort()
-    return <UsageProgressBar key={key} label={t(`admin.accounts.usageWindow.${key}`)}
+    return <UsageProgressBar key={key} label={t(`admin.accounts.usageWindow.${key}`)} precisePercent
       utilization={Math.max(...quotas.map(q => q.utilization))} resetsAt={resets[0]} />
   })
   const verification = usage?.validation_url && /^https?:\/\//i.test(usage.validation_url) ? usage.validation_url : null

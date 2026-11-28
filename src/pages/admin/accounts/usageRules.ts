@@ -162,8 +162,11 @@ export function usageVariant(utilization: number): UsageVariant {
 }
 
 /** Percentage label, capped at >999% for runaway overage. */
-export function formatUtilization(utilization: number): string {
+export function formatUtilization(utilization: number, precisePercent = false): string {
   if (!Number.isFinite(utilization)) return '-'
+  if (precisePercent && utilization > 0 && utilization < 100) {
+    return utilization < 0.01 ? '<0.01%' : `${utilization.toFixed(2)}%`
+  }
   const rounded = Math.round(Math.max(utilization, 0))
   return rounded > 999 ? '>999%' : `${rounded}%`
 }

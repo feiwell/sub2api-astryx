@@ -1,3 +1,6 @@
+import { Switch } from '@astryxdesign/core/Switch'
+import { selectIsSimpleMode, useAuthStore } from '~/stores/auth'
+import { operationalColumns, sortable, OperationalStatus, PriorityCell, ProxyCell, ScoreCell, UpstreamRateCell } from './accounts/AccountOperationalCells'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertDialog } from '@astryxdesign/core/AlertDialog'
 import { Card } from '@astryxdesign/core/Card'
@@ -12,7 +15,7 @@ import { CheckboxInput } from '@astryxdesign/core/CheckboxInput'
 import { MoreMenu } from '@astryxdesign/core/MoreMenu'
 import { Spinner } from '@astryxdesign/core/Spinner'
 import { EmptyState } from '@astryxdesign/core/EmptyState'
-import { Table, proportional, pixel, useTablePagination, type TableColumn } from '@astryxdesign/core/Table'
+import { Table, proportional, pixel, useTablePagination, useTableSortable, type TableSortState, type TableColumn } from '@astryxdesign/core/Table'
 import { HStack, VStack, StackItem } from '@astryxdesign/core/Stack'
 import { Center } from '@astryxdesign/core/Center'
 import {
@@ -31,7 +34,6 @@ import { listPlatformIds, platformDisplayName } from '@/constants/platformCatalo
 import { hasLocalQuota } from './accounts/usageRules'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { Page } from '~/components/common/Page'
-import { LoadingOverlay } from '~/components/common/LoadingOverlay'
 import { getVersion, useI18n } from '~/i18n'
 import { Tooltip } from '@astryxdesign/core/Tooltip'
 import { ColumnPicker, useHiddenColumns } from '~/components/usage/ColumnPicker'
@@ -123,6 +125,9 @@ export function AdminAccountsPage() {
   const [groupFilter, setGroupFilter] = useState('')
   const [privacyFilter, setPrivacyFilter] = useState('')
   const [groups, setGroups] = useState<AdminGroup[]>([])
+  const simple = useAuthStore(selectIsSimpleMode)
+  const [sort, setSort] = useState<TableSortState>([{ sortKey: 'name', direction: 'ascending' }])
+  const sortPlugin = useTableSortable<AccountRow>({ sort, allowUnsortedState: false, onSortChange: next => { setSort(next); setPage(1) } })
   const filters = useMemo(() => ({ platform: platformFilter, type: typeFilter, status: statusFilter,
     group: groupFilter, privacy_mode: privacyFilter, search: searchQuery }),
     [platformFilter, typeFilter, statusFilter, groupFilter, privacyFilter, searchQuery])
@@ -172,6 +177,7 @@ export function AdminAccountsPage() {
   const [lastProbe] = useState(() => new Map<number, number>())
   const [revision, setRevision] = useState<AccountListRevision>({ version: 0, force: false })
   const [hiddenColumns, setHiddenColumns] = useHiddenColumns('account-hidden-columns', ['today_stats', 'proxy', 'notes', 'scheduler_score', 'rate_multiplier'])
+  const showScore = !hiddenColumns.includes('scheduler_score')
   const catalogVersion = getVersion()
   const listRequest = useRef<AbortController | null>(null)
   const updateAccount = useCallback<UpdateAccount>((id, patch) => {
@@ -187,7 +193,7 @@ export function AdminAccountsPage() {
     setLoading(true)
     try {
       const response = await adminAPI.accounts.list(page, pageSize, {
-        ...filters, lite: '1',
+        ...filters, lite: '1', sort_by: sort[0]?.sortKey, sort_order: sort[0]?.direction === 'descending' ? 'desc' : 'asc', include_scheduler_score: showScore ? '1' : '0',
       }, { signal: request.signal })
       if (request.signal.aborted) return
       setAccounts(response.items ?? [])
@@ -198,7 +204,7 @@ export function AdminAccountsPage() {
     } finally {
       if (!request.signal.aborted) setLoading(false)
     }
-  }, [page, pageSize, filters, t])
+  }, [page, pageSize, filters, sort, showScore, t])
 
   useEffect(() => {
     void loadAccounts()
@@ -758,7 +764,7 @@ export function AdminAccountsPage() {
           setSelectedIds(new Set())
           toast.success(t(`admin.accounts.bulkActions.${batchAction}Success`, { count: result.success }))
         }
-        for (const warning of result.warnings ?? []) toast.warning(`#${warning.account_id} 路 ${warning.warning}`)
+        for (const warning of result.warnings ?? []) toast.warning(`#${warning.account_id} · ${warning.warning}`)
       }
       void loadAccounts()
     } catch (err) { toast.error(extractApiErrorMessage(err, t('common.error'))) }
@@ -854,41 +860,14 @@ export function AdminAccountsPage() {
     {
       key: 'status',
       header: t('admin.accounts.columns.status'),
-      renderCell: (row: AccountRow) => {
-        const account = accountById.get(row.id)
-        // A temporarily unschedulable account shows its own badge, and clicking it
-        // opens the detail dialog (Vue: AccountStatusIndicator show-temp-unsched).
-        if (account && isTempUnschedulable(account)) {
-          return (
-            <VStack gap={0.5}>
-              <Button
-                label={t('admin.accounts.status.tempUnschedulable')}
-                variant="ghost"
-                size="sm"
-                tooltip={t('admin.accounts.tempUnschedulable.viewDetails')}
-                onClick={() => setTempUnschedAccount(account)}
-              />
-              {account.temp_unschedulable_until && (
-                <Text type="supporting" color="secondary">
-                  {t('admin.accounts.status.tempUnschedulableUntil', {
-                    time: formatDateTime(account.temp_unschedulable_until),
-                  })}
-                </Text>
-              )}
-            </VStack>
-          )
-        }
-        const variant = row.status === 'active' ? 'success' : row.status === 'inactive' ? 'neutral' : 'warning'
-        const label = STATUS_KEYS[row.status] ? t(STATUS_KEYS[row.status]) : row.status
-        return <Badge label={label} variant={variant} />
-      },
+      renderCell: row => <OperationalStatus account={row} onDetails={() => setTempUnschedAccount(row)} />,
       width: pixel(140),
     },
     {
       key: 'schedulable',
       header: t('admin.accounts.columns.schedulable'),
       renderCell: (row: AccountRow) => (
-        <Badge label={row.schedulable ? t('common.yes') : t('common.no')} variant={row.schedulable ? 'success' : 'neutral'} />
+        <Switch label={`${row.name} · ${t('admin.accounts.schedulable')}`} isLabelHidden value={row.schedulable} changeAction={() => handleToggleSchedulable(row)} />
       ),
       width: pixel(100),
     },
@@ -905,6 +884,19 @@ export function AdminAccountsPage() {
       renderCell: (row: AccountRow) => <AccountUsageCell key={`${row.id}-${row.platform}-${row.type}`} account={row} store={usageStore}
         revision={revision} update={updateAccount} lastProbe={lastProbe} />, width: proportional(2, { minWidth: 200 }),
     },
+    ...Object.entries(operationalColumns).filter(([key]) => key !== 'groups' || !simple).map(([key, label]) => ({ key, header: t(`admin.accounts.columns.${label}`), width: proportional(1), renderCell: (row: AccountRow) => {
+      switch (key) {
+        case 'groups': return <Text>{row.group_ids?.map(id => groups.find(g => g.id === id)?.name ?? `#${id}`).join(', ') || '—'}</Text>
+        case 'proxy': return <ProxyCell account={row} reload={loadAccounts} />
+        case 'priority': return <PriorityCell account={row} reload={loadAccounts} />
+        case 'scheduler_score': return <ScoreCell account={row} />
+        case 'rate_multiplier': return <Text>{row.rate_multiplier ?? 1}×</Text>
+        case 'upstream_billing_rate': return <UpstreamRateCell account={row} reload={loadAccounts} />
+        case 'last_used_at': return <Text>{row.last_used_at ? formatDateTime(row.last_used_at) : '—'}</Text>
+        case 'expires_at': return <VStack gap={0.5}><Text>{row.expires_at ? formatDateTime(new Date(row.expires_at * 1000).toISOString()) : '—'}</Text>{!!row.expires_at && row.expires_at * 1000 <= Date.now() && <Text type="supporting">{t('admin.accounts.expired')}</Text>}{row.auto_pause_on_expired && <Text type="supporting">{t('admin.accounts.autoPauseOnExpired')}</Text>}</VStack>
+        default: return <Text maxLines={2} hasTruncateTooltip>{row.notes || '—'}</Text>
+      }
+    } })),
     {
       key: 'created_at',
       header: t('admin.accounts.columns.createdAt'),
@@ -931,9 +923,10 @@ export function AdminAccountsPage() {
       },
       width: pixel(140),
     },
-  ], [selectingAll, bulkBusy, t, accounts, accountById, selectedIds, handleSelectAll, handleRowSelect, platformLabel, typeLabel, openEdit, handleDelete, rowMenuItems, usageStore, revision, updateAccount, lastProbe, catalogVersion])
+  ], [selectingAll, bulkBusy, t, accounts, accountById, selectedIds, handleSelectAll, handleRowSelect, platformLabel, typeLabel, openEdit, handleDelete, rowMenuItems, usageStore, revision, updateAccount, lastProbe, catalogVersion, simple, groups, loadAccounts, handleToggleSchedulable])
 
   const columnChoices = [
+    ...Object.entries(operationalColumns).filter(([key]) => key !== 'groups' || !simple).map(([key,label]) => ({ key, label: t(`admin.accounts.columns.${label}`) })),
     { key: 'capacity', label: t('admin.accounts.columns.capacity') },
     { key: 'today_stats', label: t('admin.accounts.columns.todayStats') },
     { key: 'usage', label: t('admin.accounts.columns.usageWindows') },
@@ -1085,7 +1078,7 @@ export function AdminAccountsPage() {
         </Card>
 
         {/* Table */}
-        <Card padding={0} style={{ position: 'relative' }}>
+        <Card padding={0}>
           {loading && accounts.length === 0 ? (
             <Center minHeight={400}>
               <Spinner />
@@ -1100,14 +1093,11 @@ export function AdminAccountsPage() {
           ) : (
             <Table
               data={rows}
-              columns={columns.filter(column => !optionalColumns.includes(column.key) || !hiddenColumns.includes(column.key))}
-              plugins={{ pagination }}
+              columns={columns.filter(column => !optionalColumns.includes(column.key) || !hiddenColumns.includes(column.key)).map(column => ({ ...column, sortable: sortable.has(column.key) }))}
+              plugins={{ pagination, sort: sortPlugin }}
               idKey="__id"
             />
           )}
-          {/* Refreshing or filtering keeps the rows on screen, so the busy state
-              has to be drawn over them. */}
-          <LoadingOverlay show={loading && accounts.length > 0} />
         </Card>
       </VStack>
 
@@ -1141,7 +1131,7 @@ export function AdminAccountsPage() {
         isOpen={showExportData}
         onClose={() => setShowExportData(false)}
         selectedIds={selectedIdList}
-        filters={filters}
+        filters={{...filters, sort_by:sort[0]?.sortKey, sort_order:sort[0]?.direction === 'descending' ? 'desc' : 'asc'}}
       />
 
       {/* Gateway tools */}
