@@ -45,7 +45,7 @@ async function waitForService(timeoutMessage: string): Promise<void> {
  * effect after the service restarts).
  */
 export function UpdateSettingsTab() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const [info, setInfo] = useState<VersionInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
@@ -62,6 +62,7 @@ export function UpdateSettingsTab() {
   const [uiLoading, setUiLoading] = useState(true)
   const [uiApplying, setUiApplying] = useState(false)
   const [uiError, setUiError] = useState('')
+  const [showUiNotes, setShowUiNotes] = useState(true)
   const uiBusy = uiApplying || uiStatus?.job.state === 'running'
 
   const loadUi = useCallback(async () => {
@@ -320,20 +321,20 @@ export function UpdateSettingsTab() {
             </HStack>
 
             {uiStatus && <HStack gap={6} vAlign="center" wrap="wrap">
-              <VStack gap={1}>
+              <VStack gap={1} maxWidth="100%">
                 <Text size="sm" color="secondary">
                   {t('admin.settings.update.uiCurrent')}
                 </Text>
                 <Text weight="semibold">{uiStatus.current_sha || '—'}</Text>
               </VStack>
-              <VStack gap={1}>
+              <VStack gap={1} maxWidth="100%">
                 <Text size="sm" color="secondary">
                   {t('admin.settings.update.uiLatest')}
                 </Text>
                 <Text weight="semibold">{uiStatus.latest_sha || '—'}</Text>
               </VStack>
               {uiStatus.built_at && (
-                <VStack gap={1}>
+                <VStack gap={1} maxWidth="100%">
                   <Text size="sm" color="secondary">
                     {t('admin.settings.update.uiBuiltAt')}
                   </Text>
@@ -360,6 +361,52 @@ export function UpdateSettingsTab() {
                 />
               )}
             </HStack>
+
+            {uiStatus && (
+              <VStack gap={3} hAlign="stretch">
+                <HStack gap={2} vAlign="center" wrap="wrap">
+                  <Text weight="semibold">{t('admin.settings.update.uiNotesTitle')}</Text>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    label={t(showUiNotes ? 'admin.settings.update.hideNotes' : 'admin.settings.update.showNotes')}
+                    aria-expanded={showUiNotes}
+                    aria-controls="frontend-release-notes"
+                    onClick={() => setShowUiNotes((visible) => !visible)}
+                  />
+                </HStack>
+                {showUiNotes && (
+                  <VStack id="frontend-release-notes" gap={3} hAlign="stretch">
+                    {uiStatus.release_notes?.sha && (
+                      <Text size="sm" color="secondary">
+                        {t('admin.settings.update.uiNotesRevision', { sha: uiStatus.release_notes.sha.slice(0, 7) })}
+                      </Text>
+                    )}
+                    {uiStatus.release_notes?.state === 'available' ? (
+                      uiStatus.release_notes.releases.map((release, index) => (
+                        <VStack key={`${release.date}-${index}`} gap={2} hAlign="stretch">
+                          <HStack gap={2} vAlign="center" wrap="wrap">
+                            <Text weight="semibold">{release.title[locale]}</Text>
+                            <Text size="sm" color="secondary">{release.date}</Text>
+                          </HStack>
+                          <VStack gap={2} hAlign="stretch" role="list">
+                            {release.changes[locale].map((change, changeIndex) => (
+                              <Text key={changeIndex} size="sm" role="listitem">{`• ${change}`}</Text>
+                            ))}
+                          </VStack>
+                        </VStack>
+                      ))
+                    ) : (
+                      <Text size="sm" color="secondary">
+                        {t(uiStatus.release_notes?.state === 'unavailable'
+                          ? 'admin.settings.update.uiNotesUnavailable'
+                          : 'admin.settings.update.noNotes')}
+                      </Text>
+                    )}
+                  </VStack>
+                )}
+              </VStack>
+            )}
 
             {uiError && <Text size="sm" role="alert">{uiError}</Text>}
             {uiStatus?.job.state === 'failed' && (

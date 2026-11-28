@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "releases": [
+    {
+      "date": "2026-11-28",
+      "title": {
+        "zh": "前端在线更新与注册、密钥体验改进",
+        "en": "Frontend updates, registration and API key improvements"
+      },
+      "changes": {
+        "zh": [
+          "新增管理员前端在线更新，可在更新设置中检查并安装界面更新，查看构建进度与失败日志。",
+          "新增前端发行说明，在检查更新时展示对应提交的中英文改动记录。",
+          "修复启用邮箱验证后无法完成注册的问题，并正确显示验证码重发倒计时。",
+          "修复主机刚启动时版本检查可能延迟的问题，首次检查即可获取最新版本信息。",
+          "修复创建密钥时桌面端厂商图标与文字挤压的问题，并在手机端使用下拉选择以适应窄屏。"
+        ],
+        "en": [
+          "Administrators can now check for and install frontend updates from update settings, with build progress and failure logs available.",
+          "Added frontend release notes with Chinese and English changes for the checked commit.",
+          "Fixed registration failures when email verification is enabled and corrected the countdown for resending verification codes.",
+          "Fixed delayed version checks immediately after host startup so the first check can retrieve the latest version information.",
+          "Fixed cramped provider icons and text in the API key creation dialog on desktop and added a dropdown selector for narrow mobile screens."
+        ]
+      }
+    }
+  ]
+}

@@ -17,6 +17,16 @@ export interface UiUpdateJob {
   sha: string | null
 }
 
+export interface UiReleaseNotes {
+  sha: string | null
+  state: 'available' | 'missing' | 'unavailable'
+  releases: {
+    date: string
+    title: { zh: string; en: string }
+    changes: { zh: string[]; en: string[] }
+  }[]
+}
+
 export interface UiUpdateStatus {
   current_sha: string | null
   latest_sha: string | null
@@ -25,6 +35,7 @@ export interface UiUpdateStatus {
   dist_index_sha: string | null
   job: UiUpdateJob
   unreachable: boolean
+  release_notes?: UiReleaseNotes
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {

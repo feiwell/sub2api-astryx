@@ -2,10 +2,14 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { UpdateSettingsTab } from './UpdateSettingsTab'
 
+const language = vi.hoisted(() => ({ locale: 'en' }))
 const api = vi.hoisted(() => ({ status: vi.fn(), apply: vi.fn(), checkUpdates: vi.fn() }))
 vi.mock('~/lib/api/admin/uiUpdate', () => ({ uiUpdateAPI: api }))
 vi.mock('~/lib/api/admin/system', () => ({ systemAPI: api }))
-vi.mock('~/i18n', async () => ({ useI18n: (await import('~/test/mocks')).mockUseI18n }))
+vi.mock('~/i18n', () => {
+  const t = (key: string) => key
+  return { useI18n: () => ({ t, locale: language.locale }) }
+})
 vi.mock('~/lib/toast', async () => ({ toast: (await import('~/test/mocks')).mockToast }))
 
 const idle = { state: 'idle', step: '', log: '', started_at: null, finished_at: null, sha: null }
@@ -13,6 +17,7 @@ const status = { current_sha: 'old', latest_sha: 'new', has_update: true, built_
   dist_index_sha: null, unreachable: false, job: idle }
 
 beforeEach(() => {
+  language.locale = 'en'
   api.status.mockReset().mockResolvedValue(status)
   api.apply.mockReset()
   api.checkUpdates.mockReset().mockResolvedValue({ current_version: '1', latest_version: '1' })
@@ -20,6 +25,51 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers())
 
 describe('frontend update panel', () => {
+  it.each(['en', 'zh'])('shows release notes in %s and toggles them separately', async (locale) => {
+    language.locale = locale
+    api.status.mockResolvedValue({ ...status, release_notes: {
+      sha: 'a'.repeat(40), state: 'available', releases: [{ date: '2026-11-28',
+        title: { en: 'Frontend improvements', zh: '前端改进' },
+        changes: { en: ['Online frontend updates', '<script>alert(1)</script>'], zh: ['前端在线更新'] },
+      }],
+    } })
+    render(<UpdateSettingsTab />)
+    const title = locale === 'en' ? 'Frontend improvements' : '前端改进'
+    expect(await screen.findByText(title)).toBeVisible()
+    expect(screen.getAllByRole('listitem')).toHaveLength(locale === 'en' ? 2 : 1)
+    if (locale === 'en') {
+      expect(screen.getByText('• <script>alert(1)</script>')).toBeVisible()
+      expect(document.querySelector('script')).toBeNull()
+    }
+    const toggle = screen.getByRole('button', { name: 'admin.settings.update.hideNotes' })
+    fireEvent.click(toggle)
+    expect(screen.queryByText(title)).not.toBeInTheDocument()
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(toggle)
+    expect(screen.getByText(title)).toBeVisible()
+  })
+
+  it.each(['missing', 'unavailable', undefined])('handles %s notes while allowing updates', async (state) => {
+    api.status.mockResolvedValue({ ...status, release_notes: state ? { sha: 'new', state, releases: [] } : undefined })
+    render(<UpdateSettingsTab />)
+    expect(await screen.findByText(state === 'unavailable'
+      ? 'admin.settings.update.uiNotesUnavailable' : 'admin.settings.update.noNotes')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'admin.settings.update.uiApply' }))
+      .not.toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('keeps installed release notes visible when the frontend is up to date', async () => {
+    api.status.mockResolvedValue({ ...status, current_sha: 'new', has_update: false, release_notes: {
+      sha: 'new', state: 'available', releases: [{ date: '2026-11-28',
+        title: { en: 'Installed release', zh: '已安装版本' },
+        changes: { en: ['Registration fixed'], zh: ['修复注册'] },
+      }],
+    } })
+    render(<UpdateSettingsTab />)
+    expect(await screen.findByText('Installed release')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'admin.settings.update.uiApply' })).not.toBeInTheDocument()
+  })
+
   it('shows an unavailable service and allows a fresh check', async () => {
     api.status.mockRejectedValueOnce(new Error('Service unavailable'))
     render(<UpdateSettingsTab />)

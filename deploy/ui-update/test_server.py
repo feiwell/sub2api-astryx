@@ -1,4 +1,5 @@
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -107,6 +108,97 @@ class AuthorizationTests(unittest.TestCase):
         self.assertEqual(self.request("/api/ui-update/anything", "administrator")[0], 404)
 
 
+class ReleaseNotesTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        self.updater = module.Updater(self.root / "state", self.root / "releases", "unused")
+        self.document = json.loads((Path(__file__).parents[2] / "public/release-notes.json").read_text(encoding="utf-8"))
+        self.data = json.dumps(self.document).encode()
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def test_repository_notes_have_valid_translations(self):
+        self.assertTrue(module.Updater.validate_notes(self.document))
+
+    def test_fetches_pinned_commit_and_caches_success(self):
+        with patch.object(module, "urlopen", return_value=io.BytesIO(self.data)) as fetch:
+            result = self.updater.release_notes(SHA, OLD_SHA)
+            self.assertEqual(result["state"], "available")
+            self.assertEqual(result["sha"], SHA)
+            self.assertEqual(result["releases"], self.document["releases"])
+            self.assertIn("/" + SHA + "/public/release-notes.json", fetch.call_args.args[0].full_url)
+            self.assertEqual(self.updater.release_notes(SHA, OLD_SHA, force=True), result)
+            fetch.assert_called_once()
+
+    def test_current_release_uses_installed_notes_offline(self):
+        current = self.root / "releases/current"
+        current.mkdir()
+        (current / "release-notes.json").write_bytes(self.data)
+        module.write_json(current / "ui-update.json", {"source_sha": SHA})
+        with patch.object(module, "urlopen") as fetch:
+            self.assertEqual(self.updater.release_notes(SHA, SHA)["state"], "available")
+            fetch.assert_not_called()
+
+    def test_changed_current_link_does_not_mislabel_local_notes(self):
+        current = self.root / "releases/current"
+        current.mkdir()
+        (current / "release-notes.json").write_bytes(self.data)
+        module.write_json(current / "ui-update.json", {"source_sha": OLD_SHA})
+        with patch.object(module, "urlopen", side_effect=TimeoutError) as fetch:
+            self.assertEqual(self.updater.release_notes(SHA, SHA)["state"], "unavailable")
+            fetch.assert_called_once()
+
+    def test_notes_failure_keeps_update_available(self):
+        self.updater.latest_sha = SHA
+        with patch.object(self.updater, "refresh_latest"), \
+                patch.object(self.updater, "current", return_value={"current_sha": OLD_SHA}), \
+                patch.object(module, "urlopen", side_effect=TimeoutError):
+            status = self.updater.status()
+        self.assertTrue(status["has_update"])
+        self.assertFalse(status["unreachable"])
+        self.assertEqual(status["release_notes"]["state"], "unavailable")
+
+    def test_missing_notes_can_be_retried_manually(self):
+        with patch.object(module, "urlopen", side_effect=HTTPError("unused", 404, "missing", {}, None)):
+            self.assertEqual(self.updater.release_notes(SHA, OLD_SHA)["state"], "missing")
+        with patch.object(module, "urlopen", return_value=io.BytesIO(self.data)) as fetch:
+            self.assertEqual(self.updater.release_notes(SHA, OLD_SHA)["state"], "missing")
+            fetch.assert_not_called()
+            self.assertEqual(self.updater.release_notes(SHA, OLD_SHA, force=True)["state"], "available")
+
+    def test_invalid_oversized_and_unreachable_notes_do_not_break_updates(self):
+        for data in (b"invalid JSON", b"{}", b"x" * (module.RELEASE_NOTES_LIMIT + 1),
+                     b'{"schema_version":1,"releases":[{"date":"bad"}]}'):
+            with self.subTest(data=data[:50]), patch.object(module, "urlopen", return_value=io.BytesIO(data)):
+                self.assertEqual(self.updater.release_notes(SHA, OLD_SHA, force=True)["state"], "unavailable")
+        with patch.object(module, "urlopen", side_effect=TimeoutError):
+            self.assertEqual(self.updater.release_notes(SHA, OLD_SHA, force=True)["state"], "unavailable")
+
+    def test_new_revision_does_not_reuse_previous_notes(self):
+        with patch.object(module, "urlopen", return_value=io.BytesIO(self.data)):
+            self.updater.release_notes(SHA, OLD_SHA)
+        with patch.object(module, "urlopen", side_effect=TimeoutError):
+            result = self.updater.release_notes(OLD_SHA, SHA)
+        self.assertEqual(result, {"sha": OLD_SHA, "state": "unavailable", "releases": []})
+
+    def test_status_includes_notes_during_github_outage(self):
+        with patch.object(self.updater, "refresh_latest"), \
+                patch.object(self.updater, "current", return_value={"current_sha": SHA}), \
+                patch.object(module, "urlopen", return_value=io.BytesIO(self.data)):
+            self.updater.unreachable = True
+            status = self.updater.status()
+        self.assertTrue(status["unreachable"])
+        self.assertEqual(status["release_notes"]["sha"], SHA)
+        self.assertEqual(status["release_notes"]["state"], "available")
+
+    def test_invalid_revision_never_requests_a_url(self):
+        with patch.object(module, "urlopen") as fetch:
+            self.assertEqual(self.updater.release_notes("../main", None)["state"], "unavailable")
+            fetch.assert_not_called()
+
+
 @unittest.skipIf(os.name == "nt", "Release symlinks and subprocess groups use the Linux deployment runtime")
 class ReleaseTests(unittest.TestCase):
     def setUp(self):
@@ -195,7 +287,8 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(restarted.job["state"], "failed")
         self.assertEqual(restarted.current()["current_sha"], OLD_SHA)
 
-    def test_github_failure_preserves_last_known_revision(self):
+    @patch.object(module.Updater, "release_notes", return_value={"state": "unavailable", "releases": []})
+    def test_github_failure_preserves_last_known_revision(self, _notes):
         result = subprocess.CompletedProcess([], 0, SHA + "\trefs/heads/main\n", "")
         with patch.object(module.time, "monotonic", return_value=10), \
                 patch.object(module.subprocess, "run", return_value=result):

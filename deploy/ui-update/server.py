@@ -21,6 +21,7 @@ from urllib.request import Request, urlopen
 REPOSITORY = "https://github.com/feiwell/sub2api-astryx.git"
 BRANCH = "main"
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
+RELEASE_NOTES_LIMIT = 128 * 1024
 
 
 def write_json(path, value):
@@ -43,6 +44,8 @@ class Updater:
         self.bin_dir.mkdir(exist_ok=True)
         self.releases_dir.mkdir(parents=True, exist_ok=True)
         self.lock = threading.RLock()
+        self.notes_lock = threading.Lock()
+        self.notes_cache = None
         self.latest_sha = None
         self.checked_at = None
         self.unreachable = False
@@ -87,6 +90,64 @@ class Updater:
                 self.unreachable = True
             self.checked_at = time.monotonic()
 
+    @staticmethod
+    def validate_notes(document):
+        if not isinstance(document, dict) or document.get("schema_version") != 1:
+            raise ValueError("Unsupported release notes format")
+        releases = document.get("releases")
+        if not isinstance(releases, list) or len(releases) > 20:
+            raise ValueError("Invalid release notes entries")
+        for release in releases:
+            if not isinstance(release, dict) or not isinstance(release.get("date"), str):
+                raise ValueError("Invalid release date")
+            datetime.strptime(release["date"], "%Y-%m-%d")
+            for language in ("zh", "en"):
+                title = release.get("title", {}).get(language)
+                changes = release.get("changes", {}).get(language)
+                if not isinstance(title, str) or not 1 <= len(title) <= 200:
+                    raise ValueError("Invalid release title")
+                if not isinstance(changes, list) or not 1 <= len(changes) <= 20:
+                    raise ValueError("Invalid release changes")
+                if any(not isinstance(change, str) or not 1 <= len(change) <= 1000 for change in changes):
+                    raise ValueError("Invalid release change")
+        return releases
+
+    def release_notes(self, sha, current_sha, force=False):
+        if not isinstance(sha, str) or not SHA_PATTERN.fullmatch(sha):
+            return {"sha": None, "state": "unavailable", "releases": []}
+        # Notes are immutable for a commit. Failed requests may be retried after a minute.
+        with self.notes_lock:
+            cached = self.notes_cache
+            if cached and cached["sha"] == sha:
+                if cached["state"] == "available" or (not force and time.monotonic() - cached["checked_at"] < 60):
+                    return {key: value for key, value in cached.items() if key != "checked_at"}
+            state, releases = "unavailable", []
+            try:
+                local = (self.releases_dir / "current").resolve() / "release-notes.json"
+                metadata = self.read_json(local.parent / "ui-update.json") or {}
+                if sha == current_sha and metadata.get("source_sha") == sha and local.is_file():
+                    with local.open("rb") as source:
+                        data = source.read(RELEASE_NOTES_LIMIT + 1)
+                else:
+                    request = Request(
+                        "https://raw.githubusercontent.com/feiwell/sub2api-astryx/" + sha + "/public/release-notes.json",
+                        headers={"Accept": "application/json", "User-Agent": "AstryxUpdater"},
+                    )
+                    with urlopen(request, timeout=8) as response:
+                        data = response.read(RELEASE_NOTES_LIMIT + 1)
+                if len(data) > RELEASE_NOTES_LIMIT:
+                    raise ValueError("Release notes are too large")
+                releases = self.validate_notes(json.loads(data))
+                state = "available" if releases else "missing"
+            except HTTPError as error:
+                state = "missing" if error.code == 404 else "unavailable"
+                error.close()
+            except (URLError, TimeoutError, OSError, ValueError, TypeError, AttributeError):
+                pass
+            result = {"sha": sha, "state": state, "releases": releases}
+            self.notes_cache = {**result, "checked_at": time.monotonic()}
+            return result
+
     def current(self):
         current = (self.releases_dir / "current").resolve()
         metadata = self.read_json(current / "ui-update.json") or {}
@@ -110,11 +171,15 @@ class Updater:
                 with self.log_file.open("rb") as log:
                     log.seek(max(0, self.log_file.stat().st_size - 12000))
                     job["log"] = log.read().decode("utf-8", errors="replace")
-            return {
+            result = {
                 **current, "latest_sha": self.latest_sha,
                 "has_update": bool(self.latest_sha and self.latest_sha != current["current_sha"]),
                 "job": job, "unreachable": self.unreachable,
             }
+        result["release_notes"] = self.release_notes(
+            result["latest_sha"] or current["current_sha"], current["current_sha"], force,
+        )
+        return result
 
     def start(self):
         with self.lock:
