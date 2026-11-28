@@ -47,6 +47,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const uiUpdateAPI = {
-  status: () => request<UiUpdateStatus>('/status'),
+  status: (force = false) => request<UiUpdateStatus>(force ? '/status?force=1' : '/status'),
   apply: () => request<{ message: string; job: UiUpdateJob }>('/apply', { method: 'POST' }),
 }

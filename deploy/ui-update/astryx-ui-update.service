@@ -1,0 +1,28 @@
+[Unit]
+Description=Astryx frontend online update service
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=astryx-updater
+Group=astryx-updater
+Environment=HOME=/var/lib/astryx-ui-update
+Environment=UI_UPDATE_ORIGIN=https://xshell.club
+EnvironmentFile=-/etc/astryx-ui-update.conf
+ExecStart=/usr/bin/python3 /usr/local/lib/astryx-ui-update/server.py
+Restart=on-failure
+RestartSec=5
+StateDirectory=astryx-ui-update
+UMask=0022
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/data/sub2api-astryx-frontend/releases
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+KillMode=control-group
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target

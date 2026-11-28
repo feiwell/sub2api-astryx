@@ -61,55 +61,67 @@ export function UpdateSettingsTab() {
   const [uiStatus, setUiStatus] = useState<UiUpdateStatus | null>(null)
   const [uiLoading, setUiLoading] = useState(true)
   const [uiApplying, setUiApplying] = useState(false)
+  const [uiError, setUiError] = useState('')
+  const uiBusy = uiApplying || uiStatus?.job.state === 'running'
 
   const loadUi = useCallback(async () => {
     setUiLoading(true)
     try {
-      setUiStatus(await uiUpdateAPI.status())
-    } catch {
-      // Older deployments have no update service; the card stays hidden.
-      setUiStatus(null)
+      setUiStatus(await uiUpdateAPI.status(true))
+      setUiError('')
+    } catch (error: any) {
+      setUiError(error?.message || t('admin.settings.update.uiFailed'))
     } finally {
       setUiLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void loadUi()
   }, [loadUi])
 
+  // Resume polling after a reload, including jobs started by another administrator.
+  useEffect(() => {
+    if (uiStatus?.job.state !== 'running') return
+    let disposed = false
+    let polling = false
+    const timer = window.setInterval(async () => {
+      if (polling) return
+      polling = true
+      try {
+        const next = await uiUpdateAPI.status()
+        if (disposed) return
+        setUiStatus(next)
+        setUiError('')
+        if (next.job.state === 'done') {
+          toast.success(t('admin.settings.update.uiDone'))
+          window.setTimeout(() => window.location.reload(), 1500)
+        } else if (next.job.state === 'failed') {
+          toast.error(t('admin.settings.update.uiFailed'))
+        }
+      } catch (error: any) {
+        if (!disposed) setUiError(error?.message || t('admin.settings.update.uiFailed'))
+      } finally {
+        polling = false
+      }
+    }, 1000)
+    return () => {
+      disposed = true
+      window.clearInterval(timer)
+    }
+  }, [uiStatus?.job.state, t])
+
   const applyUi = useCallback(async () => {
     try {
       setUiApplying(true)
-      await uiUpdateAPI.apply()
+      const result = await uiUpdateAPI.apply()
+      setUiStatus((current) => current ? { ...current, job: result.job } : current)
+      setUiError('')
     } catch (error: any) {
       toast.error(error?.message || t('admin.settings.update.uiFailed'))
+    } finally {
       setUiApplying(false)
-      return
     }
-    // The build takes tens of seconds; poll until the job leaves "running".
-    for (let attempt = 0; attempt < 180; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      let next: UiUpdateStatus
-      try {
-        next = await uiUpdateAPI.status()
-      } catch {
-        continue
-      }
-      setUiStatus(next)
-      if (next.job.state === 'running') continue
-      setUiApplying(false)
-      if (next.job.state === 'done') {
-        toast.success(t('admin.settings.update.uiDone'))
-        // The open tab still holds the old assets; reload to take the new ones.
-        window.setTimeout(() => window.location.reload(), 1500)
-      } else {
-        toast.error(next.job.log || t('admin.settings.update.uiFailed'))
-      }
-      return
-    }
-    setUiApplying(false)
-    toast.error(t('admin.settings.update.uiFailed'))
   }, [t])
 
   const check = useCallback(
@@ -286,13 +298,13 @@ export function UpdateSettingsTab() {
         </VStack>
       </Card>
 
-      {uiStatus && (
+      {(uiStatus || uiError) && (
         <Card padding={5}>
           <VStack gap={4} hAlign="stretch">
             <HStack gap={2} vAlign="center">
               <Icon icon={ServerCog} />
               <Text weight="semibold">{t('admin.settings.update.uiTitle')}</Text>
-              {!uiLoading && (
+              {!uiLoading && uiStatus && (
                 <Badge
                   variant={uiStatus.unreachable ? 'neutral' : uiStatus.has_update ? 'warning' : 'success'}
                   label={
@@ -307,7 +319,7 @@ export function UpdateSettingsTab() {
               {uiLoading && <Spinner size="sm" />}
             </HStack>
 
-            <HStack gap={6} vAlign="center" wrap="wrap">
+            {uiStatus && <HStack gap={6} vAlign="center" wrap="wrap">
               <VStack gap={1}>
                 <Text size="sm" color="secondary">
                   {t('admin.settings.update.uiCurrent')}
@@ -328,33 +340,38 @@ export function UpdateSettingsTab() {
                   <Text weight="semibold">{uiStatus.built_at}</Text>
                 </VStack>
               )}
-            </HStack>
+            </HStack>}
 
             <HStack gap={2} wrap="wrap">
               <Button
                 variant="secondary"
                 icon={<Icon icon={RefreshCw} />}
                 label={t('admin.settings.update.checkNow')}
-                isDisabled={uiLoading || uiApplying}
+                isDisabled={uiLoading || uiBusy}
                 onClick={() => void loadUi()}
               />
-              {uiStatus.has_update && (
+              {uiStatus?.has_update && (
                 <Button
                   variant="primary"
                   icon={<Icon icon={Download} />}
                   label={t('admin.settings.update.uiApply')}
-                  isDisabled={uiApplying}
+                  isDisabled={uiBusy}
                   onClick={() => void applyUi()}
                 />
               )}
             </HStack>
 
-            {uiApplying && (
+            {uiError && <Text size="sm" role="alert">{uiError}</Text>}
+            {uiStatus?.job.state === 'failed' && (
+              <Text size="sm" role="alert">{uiStatus.job.log || t('admin.settings.update.uiFailed')}</Text>
+            )}
+
+            {uiBusy && (
               <HStack gap={2} vAlign="center">
                 <Spinner size="sm" />
                 <Text size="sm" color="secondary">
                   {t('admin.settings.update.uiBuilding')}
-                  {uiStatus.job?.step ? ` (${uiStatus.job.step})` : ''}
+                  {uiStatus?.job.step ? ` (${uiStatus.job.step})` : ''}
                 </Text>
               </HStack>
             )}
